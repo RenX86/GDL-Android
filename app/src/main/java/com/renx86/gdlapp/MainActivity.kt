@@ -1,76 +1,130 @@
 package com.renx86.gdlapp
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
-import com.renx86.gdlapp.python.GalleryDlBridge
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavDestination.Companion.hasRoute
+import androidx.navigation.compose.*
+import com.renx86.gdlapp.service.DownloadService
+import com.renx86.gdlapp.ui.*
 import com.renx86.gdlapp.ui.theme.GDLAndroidTheme
+import com.renx86.gdlapp.viewmodel.DownloadViewModel
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.launch
-import javax.inject.Inject
+import kotlinx.serialization.Serializable
+
+// Type-safe navigation routes
+@Serializable object HomeRoute
+@Serializable object QueueRoute
+@Serializable object FilesRoute
+@Serializable object SettingsRoute
+
+data class BottomNavItem(
+    val label: String,
+    val icon: ImageVector,
+    val route: Any
+)
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
-    @Inject
-    lateinit var bridge: GalleryDlBridge
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        // Extract shared URL if launched via share intent
+        val sharedUrl = when (intent?.action) {
+            Intent.ACTION_SEND -> intent.getStringExtra(Intent.EXTRA_TEXT) ?: ""
+            else -> ""
+        }
+
         setContent {
             GDLAndroidTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    TestScreen(bridge, Modifier.padding(innerPadding))
-                }
+                MainApp(sharedUrl = sharedUrl)
             }
         }
     }
 }
 
 @Composable
-fun TestScreen(bridge: GalleryDlBridge, modifier: Modifier = Modifier) {
-    var url by remember { mutableStateOf("https://danbooru.donmai.us/posts/1234") }
-    var result by remember { mutableStateOf("Tap a button to test") }
-    val scope = rememberCoroutineScope()
+fun MainApp(sharedUrl: String = "") {
+    val navController = rememberNavController()
+    val viewModel: DownloadViewModel = hiltViewModel()
+    val downloads by viewModel.downloads.collectAsState()
 
-    Column(modifier = modifier.padding(16.dp).verticalScroll(rememberScrollState())) {
-        OutlinedTextField(
-            value = url,
-            onValueChange = { url = it },
-            label = { Text("URL to download") },
-            modifier = Modifier.fillMaxWidth()
-        )
+    val navItems = listOf(
+        BottomNavItem("Home", Icons.Default.Home, HomeRoute),
+        BottomNavItem("Queue", Icons.Default.Download, QueueRoute),
+        BottomNavItem("Files", Icons.Default.Folder, FilesRoute),
+        BottomNavItem("Settings", Icons.Default.Settings, SettingsRoute),
+    )
 
-        Spacer(modifier = Modifier.height(16.dp))
+    Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        bottomBar = {
+            NavigationBar {
+                val currentEntry by navController.currentBackStackEntryAsState()
+                val currentDestination = currentEntry?.destination
 
-        Row {
-            Button(onClick = {
-                scope.launch {
-                    result = "Fetching metadata..."
-                    result = bridge.getInfo(url).toString(2)
+                navItems.forEach { item ->
+                    NavigationBarItem(
+                        icon = { Icon(item.icon, contentDescription = item.label) },
+                        label = { Text(item.label) },
+                        selected = currentDestination?.hasRoute(item.route::class) == true,
+                        onClick = {
+                            navController.navigate(item.route) {
+                                popUpTo(HomeRoute) { saveState = true }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        }
+                    )
                 }
-            }) { Text("Get Info") }
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            Button(onClick = {
-                scope.launch {
-                    result = "Downloading..."
-                    result = bridge.download(url).toString(2)
-                }
-            }) { Text("Download") }
+            }
         }
+    ) { innerPadding ->
+        NavHost(
+            navController = navController,
+            startDestination = HomeRoute,
+            modifier = Modifier.padding(innerPadding)
+        ) {
+            composable<HomeRoute> {
+                HomeScreen(
+                    initialUrl = sharedUrl,
+                    onDownload = { url ->
+                        viewModel.enqueue(url)
+                        navController.navigate(QueueRoute)
+                    }
+                )
+            }
 
-        Spacer(modifier = Modifier.height(16.dp))
-        Text(text = result, style = MaterialTheme.typography.bodySmall)
+            composable<QueueRoute> {
+                QueueScreen(
+                    downloads = downloads,
+                    onRetry = { viewModel.retry(it) },
+                    onRemove = { viewModel.removeItem(it) }
+                )
+            }
+
+            composable<FilesRoute> {
+                FileBrowserScreen()
+            }
+
+            composable<SettingsRoute> {
+                SettingsScreen()
+            }
+        }
     }
 }
