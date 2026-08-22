@@ -32,3 +32,6 @@ local.properties
 Thumbs.db
 # Chaquopy cache (large, regenerated on build)
 .chaquopy/
+*.apk
+app/debug/
+app/release/
