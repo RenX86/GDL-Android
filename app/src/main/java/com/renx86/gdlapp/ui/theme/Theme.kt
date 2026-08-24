@@ -36,8 +36,8 @@ private val LightColorScheme = lightColorScheme(
 @Composable
 fun GDLAndroidTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    // Dynamic color is available on Android 12+
-    dynamicColor: Boolean = true,
+    // Disable dynamic color by default so Neobrutalism colors aren't overridden
+    dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {

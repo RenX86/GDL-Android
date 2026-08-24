@@ -11,12 +11,16 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -99,9 +103,16 @@ fun NeoTextField(
     modifier: Modifier = Modifier,
     trailingIcon: @Composable (() -> Unit)? = null
 ) {
+    var isFocused by remember { mutableStateOf(false) }
+    
+    // Instead of using alpha (which makes it transparent and shows the black shadow underneath),
+    // we use a solid, pale yellow color for the focused state.
+    val bgColor = if (isFocused) Color(0xFFFFF7C2) else Color.White
+    val shadow = if (isFocused) 8.dp else 6.dp
+
     Box(
         modifier = modifier
-            .neoBrutalist(backgroundColor = Color.White, shadowOffset = 6.dp)
+            .neoBrutalist(backgroundColor = bgColor, shadowOffset = shadow)
             .padding(16.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -116,7 +127,10 @@ fun NeoTextField(
                         color = NeoBorder,
                         fontWeight = FontWeight.Bold
                     ),
-                    modifier = Modifier.fillMaxWidth()
+                    cursorBrush = SolidColor(NeoBorder),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .onFocusChanged { isFocused = it.isFocused }
                 )
             }
             if (trailingIcon != null) {

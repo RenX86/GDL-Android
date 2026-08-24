@@ -6,6 +6,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.font.FontWeight
@@ -27,22 +28,26 @@ fun HomeScreen(
     var url by remember { mutableStateOf(initialUrl) }
     val clipboardManager = LocalClipboardManager.current
 
-    Column(
+    Box(
         modifier = modifier
             .fillMaxSize()
             .background(NeoBackground)
-            .padding(23.dp)
     ) {
-        Spacer(modifier = Modifier.height(48.dp))
-        
-        Text(
-            "GDL",
-            style = MaterialTheme.typography.displayMedium.copy(
-                fontWeight = FontWeight.Black,
-                fontSize = 48.sp,
-                color = NeoBorder
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .offset(x = 0.dp, y = 100.dp) // <--- CHANGE THESE VALUES
+                .padding(horizontal = 24.dp), // Keeps it from touching the left/right screen edges
+            horizontalAlignment = Alignment.Start
+        ) {
+            Text(
+                "GDL",
+                style = MaterialTheme.typography.displayMedium.copy(
+                    fontWeight = FontWeight.Black,
+                    fontSize = 48.sp,
+                    color = NeoBorder
+                )
             )
-        )
         Text(
             "ANDROID",
             style = MaterialTheme.typography.headlineMedium.copy(
@@ -81,6 +86,7 @@ fun HomeScreen(
             modifier = Modifier.fillMaxWidth()
         )
     }
+}
 }
 
 @Preview(showBackground = true, showSystemUi = true)

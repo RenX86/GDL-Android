@@ -11,6 +11,9 @@ import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Download
@@ -19,9 +22,13 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -29,6 +36,9 @@ import androidx.navigation.compose.*
 import com.renx86.gdlapp.service.DownloadService
 import com.renx86.gdlapp.ui.*
 import com.renx86.gdlapp.ui.theme.GDLAndroidTheme
+import com.renx86.gdlapp.ui.theme.NeoBackground
+import com.renx86.gdlapp.ui.theme.NeoBorder
+import com.renx86.gdlapp.ui.theme.NeoYellow
 import com.renx86.gdlapp.viewmodel.DownloadViewModel
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.serialization.Serializable
@@ -105,25 +115,55 @@ fun MainApp(sharedUrl: String = "") {
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         bottomBar = {
-            NavigationBar {
+            // Custom Neobrutalist bottom bar
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(NeoBackground)
+                    .border(width = 3.dp, color = NeoBorder)
+                    .padding(vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 val currentEntry by navController.currentBackStackEntryAsState()
                 val currentDestination = currentEntry?.destination
 
                 navItems.forEach { item ->
-                    NavigationBarItem(
-                        icon = { Icon(item.icon, contentDescription = item.label) },
-                        label = { Text(item.label) },
-                        selected = currentDestination?.hasRoute(item.route::class) == true,
-                        onClick = {
-                            navController.navigate(item.route) {
-                                // Clear entire back stack down to Home
-                                popUpTo(navController.graph.findStartDestination().id) {
-                                    inclusive = true
+                    val isSelected = currentDestination?.hasRoute(item.route::class) == true
+                    val bgColor = if (isSelected) NeoYellow else Color.Transparent
+
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier
+                            .clickable {
+                                navController.navigate(item.route) {
+                                    popUpTo(navController.graph.findStartDestination().id) {
+                                        inclusive = true
+                                    }
+                                    launchSingleTop = true
                                 }
-                                launchSingleTop = true
                             }
-                        }
-                    )
+                            .then(
+                                if (isSelected) Modifier
+                                    .background(bgColor)
+                                    .border(2.dp, NeoBorder)
+                                    .padding(horizontal = 16.dp, vertical = 6.dp)
+                                else Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
+                            )
+                    ) {
+                        Icon(
+                            item.icon,
+                            contentDescription = item.label,
+                            tint = NeoBorder,
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Text(
+                            text = item.label.uppercase(),
+                            fontWeight = FontWeight.Black,
+                            fontSize = 10.sp,
+                            color = NeoBorder
+                        )
+                    }
                 }
             }
         }
