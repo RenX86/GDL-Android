@@ -33,6 +33,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.*
+import androidx.navigation.toRoute
 import com.renx86.gdlapp.service.DownloadService
 import com.renx86.gdlapp.ui.*
 import com.renx86.gdlapp.ui.theme.GDLAndroidTheme
@@ -48,6 +49,7 @@ import kotlinx.serialization.Serializable
 @Serializable object QueueRoute
 @Serializable object FilesRoute
 @Serializable object SettingsRoute
+@Serializable data class WebViewLoginRoute(val url: String)
 
 data class BottomNavItem(
     val label: String,
@@ -202,7 +204,24 @@ fun MainApp(sharedUrl: String = "") {
             }
 
             composable<SettingsRoute> {
-                SettingsScreen()
+                SettingsScreen(
+                    onLoginToSite = { url ->
+                        navController.navigate(WebViewLoginRoute(url))
+                    }
+                )
+            }
+
+            composable<WebViewLoginRoute> { backStackEntry ->
+                val route = backStackEntry.toRoute<WebViewLoginRoute>()
+                WebViewLoginScreen(
+                    initialUrl = route.url,
+                    onCookiesSaved = {
+                        navController.popBackStack()
+                    },
+                    onCancel = {
+                        navController.popBackStack()
+                    }
+                )
             }
         }
     }

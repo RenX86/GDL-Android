@@ -2,8 +2,11 @@ package com.renx86.gdlapp.ui
 
 import android.os.Environment
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Cookie
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.SdStorage
@@ -17,153 +20,349 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.renx86.gdlapp.data.CookieExporter
+import com.renx86.gdlapp.data.CookiePreferences
 import com.renx86.gdlapp.data.DownloadPreferences
 import com.renx86.gdlapp.ui.theme.*
 import java.io.File
 
 @Composable
-fun SettingsScreen(modifier: Modifier = Modifier) {
+
+fun SettingsScreen(
+    onLoginToSite: (String) -> Unit = {},
+    modifier: Modifier = Modifier
+) {
     val context = LocalContext.current
     val prefs = remember { DownloadPreferences(context) }
+    val cookiePrefs = remember { CookiePreferences(context) }
     var downloadPath by remember { mutableStateOf(prefs.getDownloadPath()) }
     var showPathEditor by remember { mutableStateOf(false) }
     var editPath by remember { mutableStateOf(downloadPath) }
+    var showPasteDialog by remember { mutableStateOf(false) }
+    var pasteText by remember { mutableStateOf("") }
+    var customUrl by remember { mutableStateOf("") }
+
+    // Cookie state
+    var cookieDomain by remember { mutableStateOf(cookiePrefs.getCookieDomain()) }
+    var cookiesEnabled by remember { mutableStateOf(cookiePrefs.areCookiesEnabled()) }
 
     // Calculate stats from the current download directory
     val downloadDir = File(downloadPath)
     val totalFiles = try { downloadDir.walkTopDown().count { it.isFile } } catch (e: Exception) { 0 }
     val totalSize = try { downloadDir.walkTopDown().filter { it.isFile }.sumOf { it.length() } } catch (e: Exception) { 0L }
 
-    Column(
+    // Popular sites for quick-login
+    val quickSites = listOf(
+        "Twitter" to "https://twitter.com/i/flow/login",
+        "Instagram" to "https://www.instagram.com/accounts/login/",
+        "Pixiv" to "https://accounts.pixiv.net/login",
+        "Reddit" to "https://www.reddit.com/login/"
+    )
+
+    LazyColumn(
         modifier = modifier
             .fillMaxSize()
             .background(NeoBackground)
-            .padding(24.dp)
+            .padding(horizontal = 24.dp),
+        contentPadding = PaddingValues(top = 24.dp, bottom = 80.dp)
     ) {
-        Spacer(modifier = Modifier.height(24.dp))
+        item {
+            Spacer(modifier = Modifier.height(24.dp))
 
-        // Big Title
-        Text(
-            "SETTINGS",
-            style = MaterialTheme.typography.displayMedium.copy(
-                fontWeight = FontWeight.Black,
-                color = NeoBorder
-            )
-        )
-
-        Spacer(modifier = Modifier.height(32.dp))
-
-        // Storage Box (NeoBlue)
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .neoBrutalist(backgroundColor = NeoBlue, shadowOffset = 8.dp)
-                .padding(20.dp)
-        ) {
-            Column {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.SdStorage, contentDescription = "Storage", tint = NeoBorder)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        "STORAGE",
-                        fontWeight = FontWeight.Black,
-                        fontSize = 20.sp,
-                        color = NeoBorder
-                    )
-                }
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Text(
-                    "Download Location:",
-                    fontWeight = FontWeight.Bold,
+            // Big Title
+            Text(
+                "SETTINGS",
+                style = MaterialTheme.typography.displayMedium.copy(
+                    fontWeight = FontWeight.Black,
                     color = NeoBorder
                 )
-                Text(
-                    downloadPath,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.DarkGray
-                )
+            )
 
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text("Files: $totalFiles", fontWeight = FontWeight.Black)
-                    Text("Size: ${totalSize / 1024 / 1024} MB", fontWeight = FontWeight.Black)
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Change folder button
-                NeoButton(
-                    text = "Change Folder",
-                    onClick = {
-                        editPath = downloadPath
-                        showPathEditor = true
-                    },
-                    color = NeoYellow,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
+            Spacer(modifier = Modifier.height(32.dp))
         }
 
-        // Path editor dialog
-        if (showPathEditor) {
-            Spacer(modifier = Modifier.height(16.dp))
-
+        // ---- STORAGE BOX ----
+        item {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .neoBrutalist(backgroundColor = Color.White, shadowOffset = 6.dp)
+                    .neoBrutalist(backgroundColor = NeoBlue, shadowOffset = 8.dp)
                     .padding(20.dp)
             ) {
                 Column {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.FolderOpen, contentDescription = "Path", tint = NeoBorder)
+                        Icon(Icons.Default.SdStorage, contentDescription = "Storage", tint = NeoBorder)
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            "SET DOWNLOAD PATH",
+                            "STORAGE",
                             fontWeight = FontWeight.Black,
-                            fontSize = 16.sp,
+                            fontSize = 20.sp,
                             color = NeoBorder
                         )
                     }
+                    Spacer(modifier = Modifier.height(16.dp))
 
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    NeoTextField(
-                        value = editPath,
-                        onValueChange = { editPath = it },
-                        placeholder = "/storage/emulated/0/Download/GDL",
-                        modifier = Modifier.fillMaxWidth()
+                    Text(
+                        "Download Location:",
+                        fontWeight = FontWeight.Bold,
+                        color = NeoBorder
+                    )
+                    Text(
+                        downloadPath,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.DarkGray
                     )
 
                     Spacer(modifier = Modifier.height(12.dp))
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("Files: $totalFiles", fontWeight = FontWeight.Black)
+                        Text("Size: ${totalSize / 1024 / 1024} MB", fontWeight = FontWeight.Black)
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    NeoButton(
+                        text = "Change Folder",
+                        onClick = {
+                            editPath = downloadPath
+                            showPathEditor = true
+                        },
+                        color = NeoYellow,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+        }
+
+        // ---- PATH EDITOR ----
+        if (showPathEditor) {
+            item {
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .neoBrutalist(backgroundColor = Color.White, shadowOffset = 6.dp)
+                        .padding(20.dp)
+                ) {
+                    Column {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.FolderOpen, contentDescription = "Path", tint = NeoBorder)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                "SET DOWNLOAD PATH",
+                                fontWeight = FontWeight.Black,
+                                fontSize = 16.sp,
+                                color = NeoBorder
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        NeoTextField(
+                            value = editPath,
+                            onValueChange = { editPath = it },
+                            placeholder = "/storage/emulated/0/Download/GDL",
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            NeoButton(
+                                text = "Save",
+                                onClick = {
+                                    val path = editPath.trim()
+                                    if (path.isNotBlank()) {
+                                        File(path).mkdirs()
+                                        prefs.setDownloadPath(path)
+                                        downloadPath = path
+                                        showPathEditor = false
+                                    }
+                                },
+                                color = NeoGreen,
+                                modifier = Modifier.weight(1f)
+                            )
+                            NeoButton(
+                                text = "Reset",
+                                onClick = {
+                                    editPath = DownloadPreferences.DEFAULT_PATH
+                                },
+                                color = NeoPink,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // ---- AUTHENTICATION BOX ----
+        item {
+            Spacer(modifier = Modifier.height(32.dp))
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .neoBrutalist(backgroundColor = NeoOrange, shadowOffset = 8.dp)
+                    .padding(20.dp)
+            ) {
+                Column {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Cookie, contentDescription = "Authentication", tint = NeoBorder)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            "AUTHENTICATION",
+                            fontWeight = FontWeight.Black,
+                            fontSize = 20.sp,
+                            color = NeoBorder
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Cookie status
+                    if (cookieDomain != null && cookiesEnabled) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(NeoGreen)
+                                .border(2.dp, NeoBorder)
+                                .padding(12.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.CheckCircle, contentDescription = "Active", tint = NeoBorder, modifier = Modifier.size(20.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    "Cookies active for $cookieDomain",
+                                    fontWeight = FontWeight.Black,
+                                    color = NeoBorder
+                                )
+                            }
+                        }
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(Color.White)
+                                .border(2.dp, NeoBorder)
+                                .padding(12.dp)
+                        ) {
+                            Text(
+                                "No cookies saved. Log in to a site below.",
+                                fontWeight = FontWeight.Bold,
+                                color = Color.DarkGray
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Quick login site buttons
+                    Text(
+                        "QUICK LOGIN:",
+                        fontWeight = FontWeight.Black,
+                        fontSize = 14.sp,
+                        color = NeoBorder
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // 2x2 grid of site buttons
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        quickSites.take(2).forEach { (name, url) ->
+                            NeoButton(
+                                text = name,
+                                onClick = { onLoginToSite(url) },
+                                color = NeoYellow,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        quickSites.drop(2).forEach { (name, url) ->
+                            NeoButton(
+                                text = name,
+                                onClick = { onLoginToSite(url) },
+                                color = NeoYellow,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Custom URL
+                    Text(
+                        "CUSTOM SITE:",
+                        fontWeight = FontWeight.Black,
+                        fontSize = 14.sp,
+                        color = NeoBorder
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        NeoTextField(
+                            value = customUrl,
+                            onValueChange = { customUrl = it },
+                            placeholder = "https://example.com/login",
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    NeoButton(
+                        text = "Open Login",
+                        onClick = {
+                            val url = customUrl.trim()
+                            if (url.isNotBlank()) {
+                                val fullUrl = if (url.startsWith("http")) url else "https://$url"
+                                onLoginToSite(fullUrl)
+                            }
+                        },
+                        color = NeoBlue,
+                        enabled = customUrl.isNotBlank(),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Action buttons row
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         NeoButton(
-                            text = "Save",
-                            onClick = {
-                                val path = editPath.trim()
-                                if (path.isNotBlank()) {
-                                    File(path).mkdirs()
-                                    prefs.setDownloadPath(path)
-                                    downloadPath = path
-                                    showPathEditor = false
-                                }
-                            },
-                            color = NeoGreen,
+                            text = "Paste",
+                            onClick = { showPasteDialog = true },
+                            color = NeoBlue,
                             modifier = Modifier.weight(1f)
                         )
                         NeoButton(
-                            text = "Reset",
+                            text = "Clear",
                             onClick = {
-                                editPath = DownloadPreferences.DEFAULT_PATH
+                                val cookieFile = File(context.filesDir, CookiePreferences.COOKIE_FILENAME)
+                                if (cookieFile.exists()) cookieFile.delete()
+                                cookiePrefs.clearAll()
+                                cookieDomain = null
+                                cookiesEnabled = false
+                                android.widget.Toast.makeText(context, "Cookies cleared", android.widget.Toast.LENGTH_SHORT).show()
                             },
                             color = NeoPink,
                             modifier = Modifier.weight(1f)
@@ -173,57 +372,101 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
             }
         }
 
-        Spacer(modifier = Modifier.height(32.dp))
+        // ---- PASTE DIALOG ----
+        if (showPasteDialog) {
+            item {
+                Spacer(modifier = Modifier.height(16.dp))
 
-        // Auth Box (NeoOrange)
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .neoBrutalist(backgroundColor = NeoOrange, shadowOffset = 8.dp)
-                .padding(20.dp)
-        ) {
-            Column {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Cookie, contentDescription = "Authentication", tint = NeoBorder)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        "AUTHENTICATION",
-                        fontWeight = FontWeight.Black,
-                        fontSize = 20.sp,
-                        color = NeoBorder
-                    )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .neoBrutalist(backgroundColor = Color.White, shadowOffset = 6.dp)
+                        .padding(20.dp)
+                ) {
+                    Column {
+                        Text(
+                            "PASTE NETSCAPE COOKIES",
+                            fontWeight = FontWeight.Black,
+                            fontSize = 16.sp,
+                            color = NeoBorder
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            "Paste a cookies.txt file in Netscape format (7 tab-separated columns per line).",
+                            fontSize = 12.sp,
+                            color = Color.DarkGray
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        NeoTextField(
+                            value = pasteText,
+                            onValueChange = { pasteText = it },
+                            placeholder = "# Netscape HTTP Cookie File\n.domain.com\tTRUE\t/\tTRUE\t0\tname\tvalue",
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            NeoButton(
+                                text = "Import",
+                                onClick = {
+                                    val cookieFile = File(context.filesDir, CookiePreferences.COOKIE_FILENAME)
+                                    val success = CookieExporter.exportFromPaste(pasteText, cookieFile)
+                                    if (success) {
+                                        cookiePrefs.setCookieDomain("manual-import")
+                                        cookiePrefs.setCookiesEnabled(true)
+                                        cookieDomain = "manual-import"
+                                        cookiesEnabled = true
+                                        showPasteDialog = false
+                                        pasteText = ""
+                                        android.widget.Toast.makeText(context, "Cookies imported ✓", android.widget.Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        android.widget.Toast.makeText(context, "Invalid format. Need 7 tab-separated columns.", android.widget.Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                                color = NeoGreen,
+                                modifier = Modifier.weight(1f)
+                            )
+                            NeoButton(
+                                text = "Cancel",
+                                onClick = {
+                                    showPasteDialog = false
+                                    pasteText = ""
+                                },
+                                color = NeoPink,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
                 }
-                Spacer(modifier = Modifier.height(12.dp))
-                Text(
-                    "Cookie import and per-site credentials are coming in a future update.",
-                    fontWeight = FontWeight.Bold,
-                    color = NeoBorder
-                )
             }
         }
 
-        Spacer(modifier = Modifier.weight(1f))
+        // ---- VERSION INFO ----
+        item {
+            Spacer(modifier = Modifier.height(32.dp))
 
-        // Version Info
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                "GDL-ANDROID V0.1.1",
-                fontWeight = FontWeight.Black,
-                fontSize = 16.sp,
-                color = NeoBorder
-            )
-            Text(
-                "Powered by gallery-dl + Chaquopy",
-                fontWeight = FontWeight.Bold,
-                fontSize = 12.sp,
-                color = Color.DarkGray
-            )
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    "GDL-ANDROID V0.1.2",
+                    fontWeight = FontWeight.Black,
+                    fontSize = 16.sp,
+                    color = NeoBorder
+                )
+                Text(
+                    "Powered by gallery-dl + Chaquopy",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 12.sp,
+                    color = Color.DarkGray
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
         }
-
-        Spacer(modifier = Modifier.height(16.dp))
     }
 }
 

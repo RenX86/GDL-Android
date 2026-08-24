@@ -23,6 +23,16 @@ def initialize(files_dir: str, download_dir: str):
 
     _initialized = True
 
+def set_cookies(cookie_file_path: str):
+    """Tell gallery-dl to use a Netscape-format cookies.txt file."""
+    if os.path.exists(cookie_file_path):
+        config.set(("extractor",), "cookies", cookie_file_path)
+
+def set_user_agent(user_agent: str):
+    """Set a custom User-Agent to match the WebView session."""
+    if user_agent:
+        config.set(("downloader",), "http", {"headers": {"User-Agent": user_agent}})
+
 def get_info(url: str) -> str:
     if not _initialized:
         raise RuntimeError("Call initialize() first")

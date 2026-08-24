@@ -3,6 +3,7 @@ package com.renx86.gdlapp.python
 import android.content.Context
 import com.chaquo.python.Python
 import com.chaquo.python.android.AndroidPlatform
+import com.renx86.gdlapp.data.CookiePreferences
 import com.renx86.gdlapp.data.DownloadPreferences
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -15,7 +16,8 @@ import javax.inject.Singleton
 @Singleton
 class GalleryDlBridge @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val prefs: DownloadPreferences
+    private val prefs: DownloadPreferences,
+    private val cookiePrefs: CookiePreferences
 ) {
     private var currentDownloadDir: String = ""
 
@@ -41,6 +43,26 @@ class GalleryDlBridge @Inject constructor(
             val filesDir = context.filesDir.absolutePath
             module.callAttr("initialize", filesDir, targetDir)
             currentDownloadDir = targetDir
+        }
+
+        // Apply cookies if enabled
+        applyCookies()
+    }
+
+    /**
+     * If cookies.txt exists (saved via WebView login or manual paste),
+     * automatically tell gallery-dl to use them. No manual toggle needed.
+     */
+    private fun applyCookies() {
+        val cookieFile = File(context.filesDir, CookiePreferences.COOKIE_FILENAME)
+        if (cookieFile.exists() && cookieFile.length() > 0) {
+            module.callAttr("set_cookies", cookieFile.absolutePath)
+
+            // Also match the User-Agent if one was saved from the WebView
+            val userAgent = cookiePrefs.getUserAgent()
+            if (!userAgent.isNullOrBlank()) {
+                module.callAttr("set_user_agent", userAgent)
+            }
         }
     }
 
