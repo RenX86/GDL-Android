@@ -104,4 +104,7 @@ dependencies {
 
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
+
+    // Coil (image loading for gallery thumbnails)
+    implementation("io.coil-kt.coil3:coil-compose:3.2.0")
 }

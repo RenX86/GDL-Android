@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths>
+    <!-- App-private downloads (legacy) -->
     <external-files-path name="downloads" path="Download/" />
+    <!-- Public storage so FileProvider can open files from /Download/GDL/ etc -->
+    <external-path name="external" path="." />
 </paths>
