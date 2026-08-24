@@ -210,7 +210,7 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                "GDL-ANDROID V0.1.0",
+                "GDL-ANDROID V0.1.1",
                 fontWeight = FontWeight.Black,
                 fontSize = 16.sp,
                 color = NeoBorder
