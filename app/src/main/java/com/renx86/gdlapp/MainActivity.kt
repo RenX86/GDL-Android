@@ -1,6 +1,9 @@
 package com.renx86.gdlapp
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -15,8 +18,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavDestination.Companion.hasRoute
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.*
 import com.renx86.gdlapp.service.DownloadService
 import com.renx86.gdlapp.ui.*
@@ -43,6 +48,16 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        // Request notification permission on Android 13+ (API 33+)
+        // Without this, the foreground service notification is silently hidden
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED
+            ) {
+                requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1001)
+            }
+        }
 
         // Extract shared URL if launched via share intent
         val sharedUrl = when (intent?.action) {
@@ -85,9 +100,11 @@ fun MainApp(sharedUrl: String = "") {
                         selected = currentDestination?.hasRoute(item.route::class) == true,
                         onClick = {
                             navController.navigate(item.route) {
-                                popUpTo(HomeRoute) { saveState = true }
+                                // Clear entire back stack down to Home
+                                popUpTo(navController.graph.findStartDestination().id) {
+                                    inclusive = true
+                                }
                                 launchSingleTop = true
-                                restoreState = true
                             }
                         }
                     )
@@ -105,7 +122,13 @@ fun MainApp(sharedUrl: String = "") {
                     initialUrl = sharedUrl,
                     onDownload = { url ->
                         viewModel.enqueue(url)
-                        navController.navigate(QueueRoute)
+                        // Navigate to Queue using the same pattern as bottom nav
+                        navController.navigate(QueueRoute) {
+                            popUpTo(navController.graph.findStartDestination().id) {
+                                inclusive = true
+                            }
+                            launchSingleTop = true
+                        }
                     }
                 )
             }

@@ -1,5 +1,9 @@
 package com.renx86.gdlapp.ui
 
+import android.net.Uri
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -10,10 +14,15 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.renx86.gdlapp.model.DownloadItem
 import com.renx86.gdlapp.model.DownloadStatus
+import com.renx86.gdlapp.ui.theme.*
 
 @Composable
 fun QueueScreen(
@@ -23,67 +32,170 @@ fun QueueScreen(
     modifier: Modifier = Modifier
 ) {
     if (downloads.isEmpty()) {
-        Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("No downloads yet", style = MaterialTheme.typography.bodyLarge)
+        Box(
+            modifier = modifier
+                .fillMaxSize()
+                .background(NeoBackground),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "QUEUE IS EMPTY",
+                style = MaterialTheme.typography.headlineMedium.copy(
+                    fontWeight = FontWeight.Black,
+                    color = Color.LightGray
+                )
+            )
         }
         return
     }
 
-    LazyColumn(modifier = modifier.padding(8.dp)) {
+    LazyColumn(
+        modifier = modifier
+            .fillMaxSize()
+            .background(NeoBackground)
+            .padding(16.dp)
+    ) {
         items(downloads, key = { it.id }) { item ->
-            DownloadCard(item, onRetry, onRemove)
-            Spacer(modifier = Modifier.height(8.dp))
+            NeoDownloadCard(item, onRetry, onRemove)
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }
 
 @Composable
-fun DownloadCard(
+fun NeoDownloadCard(
     item: DownloadItem,
     onRetry: (String) -> Unit,
     onRemove: (String) -> Unit
 ) {
-    val (containerColor, statusText) = when (item.status) {
-        DownloadStatus.QUEUED -> MaterialTheme.colorScheme.surfaceVariant to "Queued"
-        DownloadStatus.DOWNLOADING -> MaterialTheme.colorScheme.primaryContainer to "Downloading..."
-        DownloadStatus.DONE -> MaterialTheme.colorScheme.secondaryContainer to "Done ✓"
-        DownloadStatus.FAILED -> MaterialTheme.colorScheme.errorContainer to "Failed ✗"
+    val (backgroundColor, statusText) = when (item.status) {
+        DownloadStatus.QUEUED -> Color.White to "QUEUED"
+        DownloadStatus.DOWNLOADING -> NeoYellow to "DOWNLOADING..."
+        DownloadStatus.DONE -> NeoGreen to "DONE"
+        DownloadStatus.FAILED -> NeoPink to "FAILED"
     }
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = containerColor)
+    // Extract domain for the badge (e.g., wallhaven.cc -> WH)
+    val host = try {
+        Uri.parse(item.url).host?.replace("www.", "") ?: "URL"
+    } catch (e: Exception) {
+        "URL"
+    }
+    val badgeText = host.take(2).uppercase()
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .neoBrutalist(backgroundColor = backgroundColor, shadowOffset = 6.dp)
+            .padding(16.dp)
     ) {
-        Row(
-            modifier = Modifier.padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            
+            // Site Badge (e.g. [ WH ])
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .background(NeoBackground)
+                    .border(3.dp, NeoBorder),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = badgeText,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 20.sp,
+                    color = NeoBorder
+                )
+            }
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            // Text content
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    item.url,
-                    style = MaterialTheme.typography.bodyMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    text = host,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 16.sp,
+                    color = NeoBorder
                 )
-                Text(statusText, style = MaterialTheme.typography.labelSmall)
+                Text(
+                    text = item.url,
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    color = Color.DarkGray
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Progress bar / Status
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (item.status == DownloadStatus.DOWNLOADING) {
+                        LinearProgressIndicator(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(12.dp)
+                                .border(2.dp, NeoBorder),
+                            color = NeoBorder,
+                            trackColor = Color.White
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
+                    Text(
+                        text = statusText,
+                        fontWeight = FontWeight.Black,
+                        fontSize = 14.sp
+                    )
+                }
+
                 if (item.error.isNotBlank()) {
                     Text(
-                        item.error,
+                        text = item.error,
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.error
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Red,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
 
-            if (item.status == DownloadStatus.FAILED) {
-                IconButton(onClick = { onRetry(item.id) }) {
-                    Icon(Icons.Default.Refresh, contentDescription = "Retry")
+            // Action Buttons
+            Column(horizontalAlignment = Alignment.End) {
+                if (item.status == DownloadStatus.FAILED) {
+                    Box(
+                        modifier = Modifier
+                            .clickable { onRetry(item.id) }
+                            .neoBrutalist(backgroundColor = NeoBlue, borderWidth = 2.dp, shadowOffset = 3.dp)
+                            .padding(8.dp)
+                    ) {
+                        Icon(Icons.Default.Refresh, contentDescription = "Retry", tint = NeoBorder)
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+                
+                Box(
+                    modifier = Modifier
+                        .clickable { onRemove(item.id) }
+                        .neoBrutalist(backgroundColor = Color.White, borderWidth = 2.dp, shadowOffset = 3.dp)
+                        .padding(8.dp)
+                ) {
+                    Icon(Icons.Default.Close, contentDescription = "Remove", tint = NeoBorder)
                 }
             }
-
-            IconButton(onClick = { onRemove(item.id) }) {
-                Icon(Icons.Default.Close, contentDescription = "Remove")
-            }
         }
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+fun QueueScreenPreview() {
+    val items = listOf(
+        DownloadItem(id = "1", url = "https://wallhaven.cc/w/j3m8y5", status = DownloadStatus.DOWNLOADING),
+        DownloadItem(id = "2", url = "https://reddit.com/r/pics/123", status = DownloadStatus.QUEUED),
+        DownloadItem(id = "3", url = "https://pixiv.net/artworks/987", status = DownloadStatus.DONE),
+        DownloadItem(id = "4", url = "https://twitter.com/status/456", status = DownloadStatus.FAILED, error = "Connection timeout")
+    )
+    MaterialTheme {
+        QueueScreen(downloads = items, onRetry = {}, onRemove = {})
     }
 }
