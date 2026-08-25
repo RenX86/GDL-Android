@@ -1,7 +1,20 @@
-# GDL Android 🚀
+# 📦 GDL Android
+<div align="center">
+  <img src="docs/images/logo.png" alt="GDL Android Logo" width="150"/>
 
-An Android client for [gallery-dl](https://github.com/mikf/gallery-dl) built with Jetpack Compose, Python, and Chaquopy. Download image galleries and collections directly on your Android device from hundreds of supported websites.
+  **A Neobrutalist Android GUI for gallery-dl**
+</div>
 
+---
+
+## 📸 Screenshots
+<div align="center">
+  <img src="docs/images/Home.png" width="19%" />
+  <img src="docs/images/Queue.png" width="19%" />
+  <img src="docs/images/Files1.png" width="19%" />
+  <img src="docs/images/Files2.png" width="19%" />
+  <img src="docs/images/Settings.png" width="19%" />
+</div>
 
 ## ✨ Features
 
