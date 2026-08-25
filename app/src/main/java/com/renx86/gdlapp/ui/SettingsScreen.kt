@@ -26,8 +26,14 @@ import com.renx86.gdlapp.data.DownloadPreferences
 import com.renx86.gdlapp.ui.theme.*
 import java.io.File
 import android.net.Uri
+import androidx.compose.foundation.clickable
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import com.renx86.gdlapp.data.ThemePreferences
+import com.renx86.gdlapp.data.ThemeMode
+import com.renx86.gdlapp.data.ThemeStyle
+import android.app.Activity
+import androidx.activity.compose.rememberLauncherForActivityResult
 
 @Composable
 
@@ -38,6 +44,9 @@ fun SettingsScreen(
     val context = LocalContext.current
     val prefs = remember { DownloadPreferences(context) }
     val cookiePrefs = remember { CookiePreferences(context) }
+    val themePrefs = remember { ThemePreferences(context) }
+    var currentMode by remember { mutableStateOf(themePrefs.getThemeMode()) }
+    var currentStyle by remember { mutableStateOf(themePrefs.getThemeStyle()) }
     var downloadPath by remember { mutableStateOf(prefs.getDownloadPath()) }
     var showPasteDialog by remember { mutableStateOf(false) }
     var pasteText by remember { mutableStateOf("") }
@@ -99,6 +108,74 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(32.dp))
         }
 
+        // ---- APPEARANCE BOX ----
+        item {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .neoBrutalist(backgroundColor = NeoPink, shadowOffset = 8.dp)
+                    .padding(20.dp)
+            ) {
+                Column {
+                    Text("APPEARANCE", fontWeight = FontWeight.Black, fontSize = 20.sp, color = NeoBorder)
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Text("Theme Style", fontWeight = FontWeight.Bold, color = NeoBorder)
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ThemeStyle.values().forEach { style ->
+                            val isSelected = currentStyle == style
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .neoBrutalist(
+                                        backgroundColor = if (isSelected) NeoYellow else NeoTheme.colors.surface,
+                                        borderWidth = if (isSelected) 3.dp else 2.dp,
+                                        shadowOffset = if (isSelected) 4.dp else 0.dp
+                                    )
+                                    .clickable {
+                                        themePrefs.setThemeStyle(style)
+                                        currentStyle = style
+                                        (context as? Activity)?.recreate()
+                                    }
+                                    .padding(8.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(style.name, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = NeoBorder)
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("Mode", fontWeight = FontWeight.Bold, color = NeoBorder)
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ThemeMode.values().forEach { mode ->
+                            val isSelected = currentMode == mode
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .neoBrutalist(
+                                        backgroundColor = if (isSelected) NeoYellow else NeoTheme.colors.surface,
+                                        borderWidth = if (isSelected) 3.dp else 2.dp,
+                                        shadowOffset = if (isSelected) 4.dp else 0.dp
+                                    )
+                                    .clickable {
+                                        themePrefs.setThemeMode(mode)
+                                        currentMode = mode
+                                        (context as? Activity)?.recreate()
+                                    }
+                                    .padding(8.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(mode.name, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = NeoBorder)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        item { Spacer(modifier = Modifier.height(32.dp)) }
+
         // ---- STORAGE BOX ----
         item {
             Box(
@@ -128,7 +205,7 @@ fun SettingsScreen(
                     Text(
                         downloadPath,
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color.DarkGray
+                        color = NeoTextSecondary
                     )
 
                     Spacer(modifier = Modifier.height(12.dp))
@@ -210,14 +287,14 @@ fun SettingsScreen(
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .background(Color.White)
+                                .background(NeoTheme.colors.surface)
                                 .border(2.dp, NeoBorder)
                                 .padding(12.dp)
                         ) {
                             Text(
                                 "No cookies saved. Log in to a site below.",
                                 fontWeight = FontWeight.Bold,
-                                color = Color.DarkGray
+                                color = NeoTextSecondary
                             )
                         }
                     }
@@ -339,7 +416,7 @@ fun SettingsScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .neoBrutalist(backgroundColor = Color.White, shadowOffset = 6.dp)
+                        .neoBrutalist(backgroundColor = NeoTheme.colors.surface, shadowOffset = 6.dp)
                         .padding(20.dp)
                 ) {
                     Column {
@@ -353,7 +430,7 @@ fun SettingsScreen(
                         Text(
                             "Paste a cookies.txt file in Netscape format (7 tab-separated columns per line).",
                             fontSize = 12.sp,
-                            color = Color.DarkGray
+                            color = NeoTextSecondary
                         )
                         Spacer(modifier = Modifier.height(12.dp))
                         NeoTextField(
@@ -400,31 +477,6 @@ fun SettingsScreen(
                     }
                 }
             }
-        }
-
-        // ---- VERSION INFO ----
-        item {
-            Spacer(modifier = Modifier.height(32.dp))
-
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    "GDL-ANDROID V0.1.2",
-                    fontWeight = FontWeight.Black,
-                    fontSize = 16.sp,
-                    color = NeoBorder
-                )
-                Text(
-                    "Powered by gallery-dl + Chaquopy",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 12.sp,
-                    color = Color.DarkGray
-                )
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }

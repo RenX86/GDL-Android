@@ -24,33 +24,39 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.composed
 
 // ---- NEOBRUTALISM COLORS ----
-val NeoBackground = Color(0xFFFFFDF5) // Warm off-white
-val NeoYellow = Color(0xFFFFD800)
-val NeoPink = Color(0xFFFF8AE2)
-val NeoBlue = Color(0xFF8AE2FF)
-val NeoGreen = Color(0xFF8AFF8A)
-val NeoOrange = Color(0xFFFF9040)
-val NeoBorder = Color.Black
+val NeoBackground: Color @Composable get() = NeoTheme.colors.background
+val NeoYellow: Color @Composable get() = NeoTheme.colors.yellow
+val NeoPink: Color @Composable get() = NeoTheme.colors.pink
+val NeoBlue: Color @Composable get() = NeoTheme.colors.blue
+val NeoGreen: Color @Composable get() = NeoTheme.colors.green
+val NeoOrange: Color @Composable get() = NeoTheme.colors.orange
+val NeoBorder: Color @Composable get() = NeoTheme.colors.border
+val NeoText: Color @Composable get() = NeoTheme.colors.text
+val NeoTextSecondary: Color @Composable get() = NeoTheme.colors.textSecondary
 
 // ---- MODIFIER FOR THE HARD SHADOW & BORDER ----
 fun Modifier.neoBrutalist(
     backgroundColor: Color,
     borderWidth: Dp = 3.dp,
     shadowOffset: Dp = 6.dp,
-    shadowColor: Color = NeoBorder
-): Modifier = this
-    .drawBehind {
-        // Draw the solid shadow block offset to the bottom right
-        drawRect(
-            color = shadowColor,
-            topLeft = Offset(shadowOffset.toPx(), shadowOffset.toPx()),
-            size = size
-        )
-    }
-    .background(backgroundColor)
-    .border(borderWidth, NeoBorder)
+    shadowColor: Color? = null
+): Modifier = composed {
+    val actualShadowColor = shadowColor ?: NeoBorder
+    val actualBorderColor = NeoBorder
+    this
+        .drawBehind {
+            drawRect(
+                color = actualShadowColor,
+                topLeft = Offset(shadowOffset.toPx(), shadowOffset.toPx()),
+                size = size
+            )
+        }
+        .background(backgroundColor)
+        .border(borderWidth, actualBorderColor)
+}
 
 // ---- CUSTOM NEO BUTTON ----
 @Composable
