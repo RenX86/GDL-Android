@@ -18,7 +18,8 @@ def initialize(files_dir: str, download_dir: str):
     config.clear()
     config.set(("extractor",), "base-directory", download_dir)
     config.set(("extractor",), "path-restrict", "unix")
-    config.set(("extractor",), "directory", ["{category}", "{subcategory}"])
+    # We purposefully DO NOT set the "directory" config. 
+    # By default, gallery-dl's built-in behavior is perfectly mapped to create "Site/Username" for almost all sites.
     config.set(("extractor",), "postprocessors", [])  # Disable exec/ffmpeg
 
     _initialized = True

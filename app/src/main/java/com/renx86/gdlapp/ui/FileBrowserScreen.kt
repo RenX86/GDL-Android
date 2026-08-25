@@ -31,6 +31,18 @@ import coil3.compose.AsyncImage
 import com.renx86.gdlapp.data.DownloadPreferences
 import com.renx86.gdlapp.ui.theme.*
 import java.io.File
+import androidx.documentfile.provider.DocumentFile
+
+data class FileNode(
+    val name: String,
+    val isDirectory: Boolean,
+    val uri: android.net.Uri,
+    val lastModified: Long,
+    val documentFile: DocumentFile? = null,
+    val javaFile: File? = null
+) {
+    val extension: String get() = name.substringAfterLast('.', "").lowercase()
+}
 
 private val IMAGE_EXTENSIONS = setOf("jpg", "jpeg", "png", "gif", "webp", "bmp", "svg")
 
@@ -38,26 +50,59 @@ private val IMAGE_EXTENSIONS = setOf("jpg", "jpeg", "png", "gif", "webp", "bmp",
 fun FileBrowserScreen(modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val prefs = remember { DownloadPreferences(context) }
-    val rootDir = remember { File(prefs.getDownloadPath()).also { it.mkdirs() } }
-    var currentDir by remember { mutableStateOf(rootDir) }
-    var showGallery by remember { mutableStateOf(true) } // Default to Gallery view
-
-    // Folder view: files in current directory
-    val files = remember(currentDir) {
-        currentDir.listFiles()?.sortedWith(compareBy({ !it.isDirectory }, { it.name }))
-            ?: emptyList()
+    val pathString = prefs.getDownloadPath()
+    val isSaf = pathString.startsWith("content://")
+    
+    // Root nodes
+    val rootDocumentFile = remember(pathString) {
+        if (isSaf) DocumentFile.fromTreeUri(context, android.net.Uri.parse(pathString)) else null
+    }
+    val rootJavaFile = remember(pathString) {
+        if (!isSaf) File(pathString).also { it.mkdirs() } else null
     }
 
+    var currentDocDir by remember { mutableStateOf(rootDocumentFile) }
+    var currentJavaDir by remember { mutableStateOf(rootJavaFile) }
+    
+    // Helper to generate FileNode list from current directory
+    val files = remember(currentDocDir, currentJavaDir) {
+        if (isSaf && currentDocDir != null) {
+            currentDocDir!!.listFiles()
+                .map { FileNode(it.name ?: "Unknown", it.isDirectory, it.uri, it.lastModified(), documentFile = it) }
+                .sortedWith(compareBy({ !it.isDirectory }, { it.name }))
+        } else if (currentJavaDir != null) {
+            currentJavaDir!!.listFiles()?.map { 
+                FileNode(it.name, it.isDirectory, android.net.Uri.fromFile(it), it.lastModified(), javaFile = it) 
+            }?.sortedWith(compareBy({ !it.isDirectory }, { it.name })) ?: emptyList()
+        } else emptyList()
+    }
+
+    var showGallery by remember { mutableStateOf(true) }
+
     // Gallery view: ALL images recursively from root
-    val allImages = remember(rootDir) {
-        try {
-            rootDir.walkTopDown()
-                .filter { it.isFile && it.extension.lowercase() in IMAGE_EXTENSIONS }
-                .sortedByDescending { it.lastModified() } // Newest first
-                .toList()
-        } catch (e: Exception) {
-            emptyList()
+    val allImages = remember(rootDocumentFile, rootJavaFile) {
+        val result = mutableListOf<FileNode>()
+        if (isSaf && rootDocumentFile != null) {
+            fun walkSaf(docFile: DocumentFile) {
+                docFile.listFiles().forEach {
+                    if (it.isDirectory) walkSaf(it)
+                    else {
+                        val ext = it.name?.substringAfterLast('.', "")?.lowercase() ?: ""
+                        if (ext in IMAGE_EXTENSIONS) {
+                            result.add(FileNode(it.name ?: "Unknown", false, it.uri, it.lastModified(), documentFile = it))
+                        }
+                    }
+                }
+            }
+            try { walkSaf(rootDocumentFile!!) } catch (e: Exception) {}
+        } else if (rootJavaFile != null) {
+            try {
+                rootJavaFile!!.walkTopDown()
+                    .filter { it.isFile && it.extension.lowercase() in IMAGE_EXTENSIONS }
+                    .forEach { result.add(FileNode(it.name, false, android.net.Uri.fromFile(it), it.lastModified(), javaFile = it)) }
+            } catch (e: Exception) {}
         }
+        result.sortedByDescending { it.lastModified }
     }
 
     Column(
@@ -110,10 +155,16 @@ fun FileBrowserScreen(modifier: Modifier = Modifier) {
             // ---- FOLDER VIEW ----
             FolderView(
                 files = files,
-                currentDir = currentDir,
-                rootDir = rootDir,
-                onNavigate = { currentDir = it },
-                onBack = { currentDir = currentDir.parentFile ?: rootDir },
+                isRoot = if (isSaf) currentDocDir?.uri == rootDocumentFile?.uri else currentJavaDir?.absolutePath == rootJavaFile?.absolutePath,
+                currentPathName = if (isSaf) currentDocDir?.name ?: "Downloads" else currentJavaDir?.name ?: "Downloads",
+                onNavigate = { node ->
+                    if (isSaf) currentDocDir = node.documentFile
+                    else currentJavaDir = node.javaFile
+                },
+                onBack = {
+                    if (isSaf) currentDocDir = currentDocDir?.parentFile ?: rootDocumentFile
+                    else currentJavaDir = currentJavaDir?.parentFile ?: rootJavaFile
+                },
                 context = context
             )
         }
@@ -146,7 +197,7 @@ private fun NeoTabButton(
 }
 
 @Composable
-private fun GalleryView(images: List<File>, context: Context) {
+private fun GalleryView(images: List<FileNode>, context: Context) {
     if (images.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text(
@@ -171,10 +222,10 @@ private fun GalleryView(images: List<File>, context: Context) {
                 modifier = Modifier
                     .aspectRatio(1f)
                     .clickable { openFile(context, file) }
-                    .neoBrutalist(backgroundColor = Color.White, borderWidth = 2.dp, shadowOffset = 3.dp)
+                    .neoBrutalist(backgroundColor = NeoTheme.colors.surface, borderWidth = 2.dp, shadowOffset = 3.dp)
             ) {
                 AsyncImage(
-                    model = file,
+                    model = file.uri,
                     contentDescription = file.name,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()
@@ -186,17 +237,16 @@ private fun GalleryView(images: List<File>, context: Context) {
 
 @Composable
 private fun FolderView(
-    files: List<File>,
-    currentDir: File,
-    rootDir: File,
-    onNavigate: (File) -> Unit,
+    files: List<FileNode>,
+    isRoot: Boolean,
+    currentPathName: String,
+    onNavigate: (FileNode) -> Unit,
     onBack: () -> Unit,
     context: Context
 ) {
     // Path breadcrumb
-    val relativePath = currentDir.path.removePrefix(rootDir.path)
     Text(
-        text = "DOWNLOADS${relativePath.uppercase().ifEmpty { "/" }}",
+        text = "DOWNLOADS / ${if (isRoot) "" else currentPathName.uppercase()}",
         fontWeight = FontWeight.Bold,
         color = NeoPink,
         modifier = Modifier.padding(horizontal = 8.dp)
@@ -205,7 +255,7 @@ private fun FolderView(
     Spacer(modifier = Modifier.height(8.dp))
 
     // Back button if not at root
-    if (currentDir != rootDir) {
+    if (!isRoot) {
         Box(
             modifier = Modifier
                 .padding(horizontal = 8.dp, vertical = 8.dp)
@@ -237,7 +287,7 @@ private fun FolderView(
         LazyColumn(contentPadding = PaddingValues(bottom = 80.dp)) {
             items(files) { file ->
                 val isDir = file.isDirectory
-                val bgColor = if (isDir) NeoYellow else Color.White
+                val bgColor = if (isDir) NeoYellow else NeoTheme.colors.surface
 
                 Box(
                     modifier = Modifier
@@ -280,11 +330,16 @@ private fun FolderView(
                                 color = NeoBorder
                             )
                             if (!isDir) {
+                                val sizeText = if (file.documentFile != null) {
+                                    "${file.documentFile.length() / 1024} KB"
+                                } else {
+                                    "${(file.javaFile?.length() ?: 0) / 1024} KB"
+                                }
                                 Text(
-                                    text = "${file.length() / 1024} KB",
+                                    text = sizeText,
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 12.sp,
-                                    color = Color.DarkGray
+                                    color = NeoTextSecondary
                                 )
                             }
                         }
@@ -295,18 +350,23 @@ private fun FolderView(
     }
 }
 
-private fun openFile(context: Context, file: File) {
+private fun openFile(context: Context, fileNode: FileNode) {
     try {
-        val uri = FileProvider.getUriForFile(
-            context,
-            "${context.packageName}.fileprovider",
-            file
-        )
+        val uri = if (fileNode.documentFile != null) {
+            fileNode.uri
+        } else {
+            FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.fileprovider",
+                fileNode.javaFile!!
+            )
+        }
         val intent = Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(uri, context.contentResolver.getType(uri) ?: "*/*")
+            val mimeType = context.contentResolver.getType(uri) ?: "*/*"
+            setDataAndType(uri, mimeType)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
-        context.startActivity(intent)
+        context.startActivity(Intent.createChooser(intent, "Open with"))
     } catch (e: Exception) {
         // No app to handle this file type
     }
