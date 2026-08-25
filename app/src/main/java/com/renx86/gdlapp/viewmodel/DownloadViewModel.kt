@@ -44,7 +44,7 @@ class DownloadViewModel @Inject constructor(
             updateServiceNotification()
 
             try {
-                val result = bridge.download(item.url)
+                val result = bridge.download(item.url, item.id)
                 val status = result.optString("status", "error")
                 if (status == "ok") {
                     updateItem(item.id) { it.copy(status = DownloadStatus.DONE) }

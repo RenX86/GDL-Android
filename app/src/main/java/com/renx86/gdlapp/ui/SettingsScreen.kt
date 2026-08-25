@@ -25,6 +25,9 @@ import com.renx86.gdlapp.data.CookiePreferences
 import com.renx86.gdlapp.data.DownloadPreferences
 import com.renx86.gdlapp.ui.theme.*
 import java.io.File
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 
 @Composable
 
@@ -36,11 +39,26 @@ fun SettingsScreen(
     val prefs = remember { DownloadPreferences(context) }
     val cookiePrefs = remember { CookiePreferences(context) }
     var downloadPath by remember { mutableStateOf(prefs.getDownloadPath()) }
-    var showPathEditor by remember { mutableStateOf(false) }
-    var editPath by remember { mutableStateOf(downloadPath) }
     var showPasteDialog by remember { mutableStateOf(false) }
     var pasteText by remember { mutableStateOf("") }
     var customUrl by remember { mutableStateOf("") }
+
+    val directoryPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocumentTree(),
+        onResult = { uri ->
+            if (uri != null) {
+                // Keep permission to write to this folder across app restarts
+                context.contentResolver.takePersistableUriPermission(
+                    uri,
+                    android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                )
+                
+                val uriString = uri.toString()
+                prefs.setDownloadPath(uriString)
+                downloadPath = uriString
+            }
+        }
+    )
 
     // Cookie state
     var cookieDomain by remember { mutableStateOf(cookiePrefs.getCookieDomain()) }
@@ -128,78 +146,19 @@ fun SettingsScreen(
                     NeoButton(
                         text = "Change Folder",
                         onClick = {
-                            editPath = downloadPath
-                            showPathEditor = true
+                            try {
+                                val publicDownloads = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+                                val gdlFolder = File(publicDownloads, "GDL")
+                                gdlFolder.mkdirs()
+                                val initialUri = Uri.parse("content://com.android.externalstorage.documents/document/primary%3ADownload%2FGDL")
+                                directoryPickerLauncher.launch(initialUri)
+                            } catch (e: Exception) {
+                                directoryPickerLauncher.launch(null)
+                            }
                         },
                         color = NeoYellow,
                         modifier = Modifier.fillMaxWidth()
                     )
-                }
-            }
-        }
-
-        // ---- PATH EDITOR ----
-        if (showPathEditor) {
-            item {
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .neoBrutalist(backgroundColor = Color.White, shadowOffset = 6.dp)
-                        .padding(20.dp)
-                ) {
-                    Column {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.FolderOpen, contentDescription = "Path", tint = NeoBorder)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                "SET DOWNLOAD PATH",
-                                fontWeight = FontWeight.Black,
-                                fontSize = 16.sp,
-                                color = NeoBorder
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        NeoTextField(
-                            value = editPath,
-                            onValueChange = { editPath = it },
-                            placeholder = "/storage/emulated/0/Download/GDL",
-                            modifier = Modifier.fillMaxWidth()
-                        )
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            NeoButton(
-                                text = "Save",
-                                onClick = {
-                                    val path = editPath.trim()
-                                    if (path.isNotBlank()) {
-                                        File(path).mkdirs()
-                                        prefs.setDownloadPath(path)
-                                        downloadPath = path
-                                        showPathEditor = false
-                                    }
-                                },
-                                color = NeoGreen,
-                                modifier = Modifier.weight(1f)
-                            )
-                            NeoButton(
-                                text = "Reset",
-                                onClick = {
-                                    editPath = DownloadPreferences.DEFAULT_PATH
-                                },
-                                color = NeoPink,
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
-                    }
                 }
             }
         }

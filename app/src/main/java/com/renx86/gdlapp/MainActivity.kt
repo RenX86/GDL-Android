@@ -24,6 +24,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -74,18 +78,7 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        // Request full storage access on Android 11+ so gallery-dl can write
-        // to the public Downloads folder (or any user-chosen folder).
-        // This opens a system settings page where the user toggles it on.
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            if (!Environment.isExternalStorageManager()) {
-                val intent = Intent(
-                    Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
-                    Uri.parse("package:$packageName")
-                )
-                startActivity(intent)
-            }
-        }
+        // Storage access is now handled gracefully inside the Compose UI.
 
         // Extract shared URL if launched via share intent
         val sharedUrl = when (intent?.action) {
@@ -103,6 +96,7 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun MainApp(sharedUrl: String = "") {
+
     val navController = rememberNavController()
     val viewModel: DownloadViewModel = hiltViewModel()
     val downloads by viewModel.downloads.collectAsState()
@@ -123,6 +117,7 @@ fun MainApp(sharedUrl: String = "") {
                     .fillMaxWidth()
                     .background(NeoBackground)
                     .border(width = 3.dp, color = NeoBorder)
+                    .navigationBarsPadding() // This is the crucial fix for the 3-button layout!
                     .padding(vertical = 8.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically

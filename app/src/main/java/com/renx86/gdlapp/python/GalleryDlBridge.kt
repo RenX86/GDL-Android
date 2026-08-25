@@ -32,33 +32,22 @@ class GalleryDlBridge @Inject constructor(
      * Initialize (or re-initialize) gallery-dl with the current download path.
      * Called before every download to pick up any path changes from Settings.
      */
-    private fun ensureInitialized() {
-        val targetDir = prefs.getDownloadPath()
+    private var isInitialized = false
 
-        // Create the directory if it doesn't exist
-        File(targetDir).mkdirs()
+    private fun ensureInitialized(tempCacheDir: String) {
+        // We ALWAYS re-initialize with the new temp cache dir per download
+        val filesDir = context.filesDir.absolutePath
+        module.callAttr("initialize", filesDir, tempCacheDir)
+        isInitialized = true
 
-        // Only re-initialize if the path changed
-        if (targetDir != currentDownloadDir) {
-            val filesDir = context.filesDir.absolutePath
-            module.callAttr("initialize", filesDir, targetDir)
-            currentDownloadDir = targetDir
-        }
-
-        // Apply cookies if enabled
         applyCookies()
     }
 
-    /**
-     * If cookies.txt exists (saved via WebView login or manual paste),
-     * automatically tell gallery-dl to use them. No manual toggle needed.
-     */
     private fun applyCookies() {
         val cookieFile = File(context.filesDir, CookiePreferences.COOKIE_FILENAME)
         if (cookieFile.exists() && cookieFile.length() > 0) {
             module.callAttr("set_cookies", cookieFile.absolutePath)
-
-            // Also match the User-Agent if one was saved from the WebView
+            
             val userAgent = cookiePrefs.getUserAgent()
             if (!userAgent.isNullOrBlank()) {
                 module.callAttr("set_user_agent", userAgent)
@@ -67,14 +56,89 @@ class GalleryDlBridge @Inject constructor(
     }
 
     suspend fun getInfo(url: String): JSONObject = withContext(Dispatchers.IO) {
-        ensureInitialized()
+        val dummyCache = File(context.cacheDir, "gdl_dummy")
+        dummyCache.mkdirs()
+        ensureInitialized(dummyCache.absolutePath)
+        
         val result = module.callAttr("get_info", url).toString()
         JSONObject(result)
     }
 
-    suspend fun download(url: String): JSONObject = withContext(Dispatchers.IO) {
-        ensureInitialized()
+    suspend fun download(url: String, downloadId: String): JSONObject = withContext(Dispatchers.IO) {
+        // STEP 1: Create a temporary cache directory for Python
+        val tempCacheDir = File(context.cacheDir, "gdl_temp_$downloadId")
+        tempCacheDir.mkdirs()
+
+        ensureInitialized(tempCacheDir.absolutePath)
+
+        // Run the python download!
         val result = module.callAttr("download", url).toString()
-        JSONObject(result)
+        val jsonResult = JSONObject(result)
+
+        // STEP 2: The Migration (SAF Copy)
+        if (jsonResult.optString("status") == "ok") {
+            try {
+                copyCacheToSafDestination(tempCacheDir)
+            } catch (e: Exception) {
+                return@withContext JSONObject().apply {
+                    put("status", "error")
+                    put("message", "Failed to move files to SAF destination: ${e.message}")
+                }
+            } finally {
+                // STEP 3: Cleanup
+                tempCacheDir.deleteRecursively()
+            }
+        } else {
+            tempCacheDir.deleteRecursively()
+        }
+
+        jsonResult
+    }
+
+    private fun copyCacheToSafDestination(tempCacheDir: File) {
+        val targetUriString = prefs.getDownloadPath()
+        
+        // If the user hasn't set a SAF folder yet (still absolute path or default)
+        if (!targetUriString.startsWith("content://")) {
+            // Fallback to direct copy (e.g. they are on Android 10 or using public Download folder natively)
+            val destDir = File(targetUriString)
+            destDir.mkdirs()
+            tempCacheDir.copyRecursively(destDir, overwrite = true)
+            return
+        }
+
+        val targetTreeUri = android.net.Uri.parse(targetUriString)
+        val pickedDir = androidx.documentfile.provider.DocumentFile.fromTreeUri(context, targetTreeUri)
+            ?: throw IllegalStateException("Could not access selected folder")
+
+        // Recursively walk the cache dir and copy every file
+        tempCacheDir.walkTopDown().forEach { file ->
+            if (file.isFile) {
+                // We need to recreate the folder structure if gallery-dl created subfolders
+                val relativePath = file.relativeTo(tempCacheDir).parent
+                var currentDir = pickedDir
+                
+                if (relativePath != null && relativePath != "") {
+                    val segments = relativePath.split(File.separatorChar)
+                    for (segment in segments) {
+                        val nextDir = currentDir.findFile(segment) ?: currentDir.createDirectory(segment)
+                        currentDir = nextDir ?: throw IllegalStateException("Failed to create subfolder $segment")
+                    }
+                }
+
+                // Check if file already exists in SAF, if so delete to overwrite
+                val existingFile = currentDir.findFile(file.name)
+                existingFile?.delete()
+
+                val newDocFile = currentDir.createFile("application/octet-stream", file.name)
+                    ?: throw IllegalStateException("Failed to create file ${file.name}")
+
+                context.contentResolver.openOutputStream(newDocFile.uri)?.use { outStream ->
+                    file.inputStream().use { inStream ->
+                        inStream.copyTo(outStream)
+                    }
+                }
+            }
+        }
     }
 }

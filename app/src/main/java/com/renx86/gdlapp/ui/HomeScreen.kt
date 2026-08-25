@@ -18,6 +18,16 @@ import com.renx86.gdlapp.ui.theme.NeoBorder
 import com.renx86.gdlapp.ui.theme.NeoButton
 import com.renx86.gdlapp.ui.theme.NeoPink
 import com.renx86.gdlapp.ui.theme.NeoTextField
+import com.renx86.gdlapp.ui.theme.NeoYellow
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.foundation.border
+import android.os.Environment
+import java.io.File
+import android.net.Uri
+import androidx.compose.ui.graphics.Color
+import com.renx86.gdlapp.data.DownloadPreferences
 
 @Composable
 fun HomeScreen(
@@ -27,6 +37,78 @@ fun HomeScreen(
 ) {
     var url by remember { mutableStateOf(initialUrl) }
     val clipboardManager = LocalClipboardManager.current
+    val context = LocalContext.current
+    val prefs = remember { DownloadPreferences(context) }
+    var needsSetup by remember { mutableStateOf(!prefs.getDownloadPath().startsWith("content://")) }
+
+    val directoryPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocumentTree(),
+        onResult = { uri ->
+            if (uri != null) {
+                context.contentResolver.takePersistableUriPermission(
+                    uri,
+                    android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                )
+                prefs.setDownloadPath(uri.toString())
+                needsSetup = false
+            }
+        }
+    )
+
+    if (needsSetup) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(NeoBackground)
+                .padding(24.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color.White)
+                    .border(4.dp, NeoBorder)
+                    .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    "WELCOME TO GDL",
+                    fontWeight = FontWeight.Black,
+                    fontSize = 24.sp,
+                    color = NeoBorder
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    "To start downloading, you need to select a folder where images will be saved.",
+                    color = Color.DarkGray
+                )
+                Spacer(modifier = Modifier.height(24.dp))
+                Button(
+                    onClick = {
+                        try {
+                            // Pre-create the directory in the public Downloads folder
+                            val publicDownloads = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+                            val gdlFolder = File(publicDownloads, "GDL")
+                            gdlFolder.mkdirs() // Allowed on Android 11+ without permission for public folders
+                            
+                            // Construct the document URI for this specific folder so the picker opens it automatically
+                            val initialUri = Uri.parse("content://com.android.externalstorage.documents/document/primary%3ADownload%2FGDL")
+                            directoryPickerLauncher.launch(initialUri)
+                        } catch (e: Exception) {
+                            // Fallback if anything fails
+                            directoryPickerLauncher.launch(null)
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = NeoYellow),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(0.dp),
+                    modifier = Modifier.border(3.dp, NeoBorder)
+                ) {
+                    Text("SELECT FOLDER", color = NeoBorder, fontWeight = FontWeight.Black)
+                }
+            }
+        }
+        return // Block the home screen until folder is picked
+    }
 
     Box(
         modifier = modifier
