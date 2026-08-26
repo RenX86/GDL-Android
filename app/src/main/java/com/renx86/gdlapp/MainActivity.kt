@@ -48,9 +48,11 @@ import com.renx86.gdlapp.viewmodel.DownloadViewModel
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.serialization.Serializable
 
+import androidx.compose.material.icons.filled.History
+
 // Type-safe navigation routes
 @Serializable object HomeRoute
-@Serializable object QueueRoute
+@Serializable object HistoryRoute
 @Serializable object FilesRoute
 @Serializable object SettingsRoute
 @Serializable data class WebViewLoginRoute(val url: String)
@@ -103,7 +105,7 @@ fun MainApp(sharedUrl: String = "") {
 
     val navItems = listOf(
         BottomNavItem("Home", Icons.Default.Home, HomeRoute),
-        BottomNavItem("Queue", Icons.Default.Download, QueueRoute),
+        BottomNavItem("History", Icons.Default.History, HistoryRoute),
         BottomNavItem("Files", Icons.Default.Folder, FilesRoute),
         BottomNavItem("Settings", Icons.Default.Settings, SettingsRoute),
     )
@@ -175,8 +177,8 @@ fun MainApp(sharedUrl: String = "") {
                     initialUrl = sharedUrl,
                     onDownload = { url ->
                         viewModel.enqueue(url)
-                        // Navigate to Queue using the same pattern as bottom nav
-                        navController.navigate(QueueRoute) {
+                        // Navigate to History using the same pattern as bottom nav
+                        navController.navigate(HistoryRoute) {
                             popUpTo(navController.graph.findStartDestination().id) {
                                 inclusive = true
                             }
@@ -186,11 +188,12 @@ fun MainApp(sharedUrl: String = "") {
                 )
             }
 
-            composable<QueueRoute> {
-                QueueScreen(
+            composable<HistoryRoute> {
+                HistoryScreen(
                     downloads = downloads,
                     onRetry = { viewModel.retry(it) },
-                    onRemove = { viewModel.removeItem(it) }
+                    onRemove = { viewModel.removeItem(it) },
+                    onClearAll = { viewModel.clearAllHistory() }
                 )
             }
 

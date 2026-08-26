@@ -57,6 +57,10 @@ android {
     }
 }
 
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+}
+
 chaquopy {
     defaultConfig {
         version = "3.12"
@@ -108,4 +112,10 @@ dependencies {
 
     // Coil (image loading for gallery thumbnails)
     implementation("io.coil-kt.coil3:coil-compose:3.2.0")
+
+    // Room Database
+    val room_version = "2.6.1"
+    implementation("androidx.room:room-runtime:$room_version")
+    ksp("androidx.room:room-compiler:$room_version")
+    implementation("androidx.room:room-ktx:$room_version")
 }
