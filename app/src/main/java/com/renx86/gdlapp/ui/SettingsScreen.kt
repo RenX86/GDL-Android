@@ -34,8 +34,10 @@ fun SettingsScreen(
     var currentMode by remember { mutableStateOf(themePrefs.getThemeMode()) }
     var currentStyle by remember { mutableStateOf(themePrefs.getThemeStyle()) }
     var downloadPath by remember { mutableStateOf(prefs.getDownloadPath()) }
+    var isHiddenFolderEnabled by remember { mutableStateOf(prefs.isHiddenFolderEnabled()) }
     
     var updateStatus by remember { mutableStateOf<String?>(null) }
+    var updateApkUrl by remember { mutableStateOf<String?>(null) }
     var isCheckingUpdate by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
@@ -172,7 +174,22 @@ fun SettingsScreen(
                 downloadPath = displayPath,
                 totalFiles = totalFiles,
                 totalSizeMB = totalSizeMB,
-                directoryPickerLauncher = directoryPickerLauncher
+                directoryPickerLauncher = directoryPickerLauncher,
+                isHiddenEnabled = isHiddenFolderEnabled,
+                onHiddenToggled = { enabled ->
+                    prefs.setHiddenFolderEnabled(enabled)
+                    isHiddenFolderEnabled = enabled
+                    
+                    // Create the folder immediately so it exists for the picker
+                    val publicDownloads = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
+                    val folderName = if (enabled) ".GDL" else "GDL"
+                    val folder = java.io.File(publicDownloads, folderName)
+                    folder.mkdirs()
+                    
+                    // Launch the picker to get SAF permission for the new folder
+                    val uriString = "content://com.android.externalstorage.documents/document/primary%3ADownload%2F$folderName"
+                    directoryPickerLauncher.launch(android.net.Uri.parse(uriString))
+                }
             )
         }
 
@@ -199,10 +216,12 @@ fun SettingsScreen(
             SettingsAboutSection(
                 versionName = versionName,
                 updateStatus = updateStatus,
+                updateApkUrl = updateApkUrl,
                 isCheckingUpdate = isCheckingUpdate,
                 scope = scope,
                 context = context,
                 onUpdateStatusChanged = { updateStatus = it },
+                onApkUrlFetched = { updateApkUrl = it },
                 onCheckingChanged = { isCheckingUpdate = it }
             )
         }

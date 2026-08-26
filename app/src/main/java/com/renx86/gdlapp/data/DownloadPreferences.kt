@@ -19,19 +19,43 @@ class DownloadPreferences @Inject constructor(
 
     companion object {
         private const val KEY_DOWNLOAD_PATH = "download_path"
+        private const val KEY_HIDDEN_FOLDER = "hidden_folder"
 
-        // Public Downloads/GDL/ — survives app uninstall
-        val DEFAULT_PATH: String = File(
-            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
-            "GDL"
-        ).absolutePath
+        fun getDefaultPath(isHidden: Boolean): String {
+            return File(
+                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
+                if (isHidden) ".GDL" else "GDL"
+            ).absolutePath
+        }
+    }
+
+    fun isHiddenFolderEnabled(): Boolean {
+        return prefs.getBoolean(KEY_HIDDEN_FOLDER, false)
+    }
+
+    fun setHiddenFolderEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_HIDDEN_FOLDER, enabled).apply()
     }
 
     fun getDownloadPath(): String {
-        return prefs.getString(KEY_DOWNLOAD_PATH, DEFAULT_PATH) ?: DEFAULT_PATH
+        val defaultPath = getDefaultPath(isHiddenFolderEnabled())
+        val savedPath = prefs.getString(KEY_DOWNLOAD_PATH, null)
+        
+        // If the saved path matches the *other* default path (e.g. they toggled hidden but had the old default saved),
+        // we should return the new default path.
+        val otherDefault = getDefaultPath(!isHiddenFolderEnabled())
+        if (savedPath == otherDefault) {
+            return defaultPath
+        }
+        
+        return savedPath ?: defaultPath
     }
 
-    fun setDownloadPath(path: String) {
-        prefs.edit().putString(KEY_DOWNLOAD_PATH, path).apply()
+    fun setDownloadPath(path: String?) {
+        if (path == null) {
+            prefs.edit().remove(KEY_DOWNLOAD_PATH).apply()
+        } else {
+            prefs.edit().putString(KEY_DOWNLOAD_PATH, path).apply()
+        }
     }
 }

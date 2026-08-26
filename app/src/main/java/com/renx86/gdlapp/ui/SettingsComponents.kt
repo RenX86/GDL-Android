@@ -143,7 +143,9 @@ fun SettingsStorageSection(
     downloadPath: String,
     totalFiles: Int,
     totalSizeMB: Long,
-    directoryPickerLauncher: ManagedActivityResultLauncher<Uri?, Uri?>
+    directoryPickerLauncher: ManagedActivityResultLauncher<Uri?, Uri?>,
+    isHiddenEnabled: Boolean,
+    onHiddenToggled: (Boolean) -> Unit
 ) {
     NeoCollapsibleCard(
         title = "STORAGE",
@@ -159,6 +161,17 @@ fun SettingsStorageSection(
             color = NeoTextSecondary,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text("FOLDER VISIBILITY", fontWeight = FontWeight.Black, fontSize = 14.sp, color = NeoBorder)
+        Spacer(modifier = Modifier.height(8.dp))
+        NeoSegmentedToggle(
+            options = listOf(false, true),
+            selectedOption = isHiddenEnabled,
+            onOptionSelected = onHiddenToggled,
+            label = { if (it) "HIDDEN (.GDL)" else "NORMAL (GDL)" }
         )
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -206,9 +219,10 @@ fun SettingsStorageSection(
             onClick = {
                 try {
                     val publicDownloads = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-                    val gdlFolder = File(publicDownloads, "GDL")
+                    val folderName = if (isHiddenEnabled) ".GDL" else "GDL"
+                    val gdlFolder = File(publicDownloads, folderName)
                     gdlFolder.mkdirs()
-                    val initialUri = Uri.parse("content://com.android.externalstorage.documents/document/primary%3ADownload%2FGDL")
+                    val initialUri = Uri.parse("content://com.android.externalstorage.documents/document/primary%3ADownload%2F$folderName")
                     directoryPickerLauncher.launch(initialUri)
                 } catch (e: Exception) {
                     directoryPickerLauncher.launch(null)
@@ -457,10 +471,12 @@ fun SettingsAuthSection(
 fun SettingsAboutSection(
     versionName: String,
     updateStatus: String?,
+    updateApkUrl: String?,
     isCheckingUpdate: Boolean,
     scope: CoroutineScope,
     context: Context,
     onUpdateStatusChanged: (String?) -> Unit,
+    onApkUrlFetched: (String?) -> Unit,
     onCheckingChanged: (Boolean) -> Unit
 ) {
     NeoCollapsibleCard(
@@ -527,8 +543,26 @@ fun SettingsAboutSection(
                 if (isCheckingUpdate) return@NeoButton
                 
                 if (updateStatus?.contains("available") == true) {
-                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/RenX86/GDL-Android/releases/latest"))
-                    context.startActivity(intent)
+                    if (updateApkUrl != null) {
+                        try {
+                            val request = android.app.DownloadManager.Request(Uri.parse(updateApkUrl))
+                                .setTitle("GDL Android Update")
+                                .setDescription("Downloading update...")
+                                .setNotificationVisibility(android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                                .setDestinationInExternalPublicDir(android.os.Environment.DIRECTORY_DOWNLOADS, "GDLAndroid-update.apk")
+                                .setMimeType("application/vnd.android.package-archive")
+
+                            val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as android.app.DownloadManager
+                            downloadManager.enqueue(request)
+                            android.widget.Toast.makeText(context, "Downloading update...", android.widget.Toast.LENGTH_SHORT).show()
+                        } catch (e: Exception) {
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/RenX86/GDL-Android/releases/latest"))
+                            context.startActivity(intent)
+                        }
+                    } else {
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/RenX86/GDL-Android/releases/latest"))
+                        context.startActivity(intent)
+                    }
                     return@NeoButton
                 }
                 
@@ -537,22 +571,36 @@ fun SettingsAboutSection(
                 
                 scope.launch(Dispatchers.IO) {
                     try {
-                        val url = URL("https://api.github.com/repos/RenX86/GDL-Android/releases/latest")
-                        val connection = url.openConnection() as HttpURLConnection
+                        val url = java.net.URL("https://api.github.com/repos/RenX86/GDL-Android/releases/latest")
+                        val connection = url.openConnection() as java.net.HttpURLConnection
                         connection.requestMethod = "GET"
                         connection.setRequestProperty("Accept", "application/vnd.github.v3+json")
                         
-                        if (connection.responseCode == HttpURLConnection.HTTP_OK) {
+                        if (connection.responseCode == java.net.HttpURLConnection.HTTP_OK) {
                             val response = connection.inputStream.bufferedReader().readText()
                             val json = org.json.JSONObject(response)
                             val latestVersion = json.getString("tag_name").removePrefix("v")
                             val currentVersion = versionName.removePrefix("v")
+                            
+                            var apkUrl: String? = null
+                            val assets = json.optJSONArray("assets")
+                            if (assets != null) {
+                                for (i in 0 until assets.length()) {
+                                    val asset = assets.getJSONObject(i)
+                                    val name = asset.getString("name")
+                                    if (name.endsWith(".apk")) {
+                                        apkUrl = asset.getString("browser_download_url")
+                                        break
+                                    }
+                                }
+                            }
                             
                             withContext(Dispatchers.Main) {
                                 if (latestVersion == currentVersion) {
                                     onUpdateStatusChanged("You are on the latest version!")
                                 } else {
                                     onUpdateStatusChanged("Update available: v$latestVersion!")
+                                    onApkUrlFetched(apkUrl)
                                 }
                                 onCheckingChanged(false)
                             }
