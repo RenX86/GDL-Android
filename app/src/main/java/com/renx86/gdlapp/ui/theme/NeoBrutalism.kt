@@ -21,9 +21,11 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.composed
 
 // ---- NEOBRUTALISM COLORS ----
@@ -142,6 +144,116 @@ fun NeoTextField(
             if (trailingIcon != null) {
                 Spacer(modifier = Modifier.width(8.dp))
                 trailingIcon()
+            }
+        }
+    }
+}
+
+// ---- COLLAPSIBLE NEO CARD ----
+@Composable
+fun NeoCollapsibleCard(
+    title: String,
+    icon: @Composable () -> Unit,
+    backgroundColor: Color,
+    modifier: Modifier = Modifier,
+    initiallyExpanded: Boolean = true,
+    titleTrailing: @Composable (() -> Unit)? = null,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    var expanded by remember { mutableStateOf(initiallyExpanded) }
+    val chevronRotation by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (expanded) 180f else 0f,
+        animationSpec = androidx.compose.animation.core.tween(durationMillis = 250),
+        label = "chevron"
+    )
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .neoBrutalist(backgroundColor = backgroundColor, shadowOffset = 8.dp)
+    ) {
+        Column {
+            // Header row — always visible, clickable to toggle
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { expanded = !expanded }
+                    .padding(20.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                icon()
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    title,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 20.sp,
+                    color = NeoBorder
+                )
+                if (titleTrailing != null) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    titleTrailing()
+                }
+                Spacer(modifier = Modifier.weight(1f))
+                Text(
+                    "▼",
+                    fontSize = 20.sp,
+                    color = NeoBorder,
+                    modifier = Modifier.graphicsLayer { rotationZ = chevronRotation }
+                )
+            }
+
+            // Animated content area
+            androidx.compose.animation.AnimatedVisibility(
+                visible = expanded,
+                enter = androidx.compose.animation.expandVertically(
+                    animationSpec = androidx.compose.animation.core.tween(250)
+                ),
+                exit = androidx.compose.animation.shrinkVertically(
+                    animationSpec = androidx.compose.animation.core.tween(250)
+                )
+            ) {
+                Column(
+                    modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 20.dp),
+                    content = content
+                )
+            }
+        }
+    }
+}
+
+// ---- SEGMENTED TOGGLE ----
+@Composable
+fun <T> NeoSegmentedToggle(
+    options: List<T>,
+    selectedOption: T,
+    onOptionSelected: (T) -> Unit,
+    label: (T) -> String,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        options.forEach { option ->
+            val isSelected = option == selectedOption
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .neoBrutalist(
+                        backgroundColor = if (isSelected) NeoYellow else NeoTheme.colors.surface,
+                        borderWidth = if (isSelected) 3.dp else 2.dp,
+                        shadowOffset = if (isSelected) 0.dp else 4.dp
+                    )
+                    .clickable { onOptionSelected(option) }
+                    .padding(vertical = 10.dp, horizontal = 4.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = label(option),
+                    fontWeight = if (isSelected) FontWeight.Black else FontWeight.Bold,
+                    fontSize = 12.sp,
+                    color = NeoBorder
+                )
             }
         }
     }
