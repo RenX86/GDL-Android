@@ -10,7 +10,7 @@
 ## 📸 Screenshots
 <div align="center">
   <img src="docs/images/Home.png" width="19%" />
-  <img src="docs/images/Queue.png" width="19%" />
+  <img src="docs/images/History.png" width="19%" />
   <img src="docs/images/Files1.png" width="19%" />
   <img src="docs/images/Files2.png" width="19%" />
   <img src="docs/images/Settings.png" width="19%" />
@@ -25,6 +25,8 @@
 *   **Share Intent Support:** Send URLs directly from your browser to GDL Android using the native Android share menu.
 *   **Custom Storage:** Downloads default to the public `/Download/GDL/` folder, or you can choose your own custom storage directory.
 *   **Built-in Gallery:** View all your downloaded images in a fast, newest-first grid using Coil, or browse the raw folder structure.
+*   **In-App Authentication:** Built-in Webview to easily log into sites and extract cookies (also supports importing Netscape cookies.txt files).
+*   **Settings & Updates:** Customize your app's theme and download paths, and check for new releases directly within the app.
 
 
 ## 🛠️ Technology Stack
@@ -61,8 +63,8 @@
 
 ## 🤝 Contributing
 
-Contributions are welcome! If you have suggestions or want to add support for features like cookie injection or per-site authentication, feel free to open a Pull Request.
+Contributions are welcome! If you have suggestions or want to add support for new features, feel free to open a Pull Request.
 
 ## 📝 License
 
-This project is open-source. (Note: `gallery-dl` is licensed under GPLv2).
+This project is open-source and licensed under the **GNU GPLv3** license. (Note: The underlying `gallery-dl` library is licensed under GPLv2).
