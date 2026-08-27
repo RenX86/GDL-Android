@@ -17,7 +17,9 @@ import com.renx86.gdlapp.ui.theme.NeoBackground
 import com.renx86.gdlapp.ui.theme.NeoBorder
 import com.renx86.gdlapp.ui.theme.NeoButton
 import com.renx86.gdlapp.ui.theme.NeoPink
+import com.renx86.gdlapp.ui.theme.NeoTextSecondary
 import com.renx86.gdlapp.ui.theme.NeoTextField
+import com.renx86.gdlapp.ui.theme.NeoTheme
 import com.renx86.gdlapp.ui.theme.NeoYellow
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -66,7 +68,7 @@ fun HomeScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Color.White)
+                    .background(NeoTheme.colors.surface)
                     .border(4.dp, NeoBorder)
                     .padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
@@ -80,7 +82,7 @@ fun HomeScreen(
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
                     "To start downloading, you need to select a folder where downloaded media will be saved.",
-                    color = Color.DarkGray
+                    color = NeoTextSecondary
                 )
                 Spacer(modifier = Modifier.height(24.dp))
                 Button(

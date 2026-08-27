@@ -184,7 +184,7 @@ private fun NeoTabButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val bgColor = if (isSelected) NeoYellow else Color.White
+    val bgColor = if (isSelected) NeoYellow else NeoTheme.colors.surface
 
     Box(
         modifier = modifier
@@ -210,7 +210,7 @@ private fun GalleryView(images: List<FileNode>, context: Context) {
                 "NO MEDIA YET",
                 style = MaterialTheme.typography.headlineMedium.copy(
                     fontWeight = FontWeight.Black,
-                    color = Color.LightGray
+                    color = NeoTextSecondary
                 )
             )
         }
@@ -218,7 +218,7 @@ private fun GalleryView(images: List<FileNode>, context: Context) {
     }
 
     LazyVerticalGrid(
-        columns = GridCells.Fixed(3),
+        columns = GridCells.Adaptive(160.dp),
         contentPadding = PaddingValues(8.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -304,7 +304,7 @@ private fun FolderView(
                 "FOLDER IS EMPTY",
                 style = MaterialTheme.typography.headlineMedium.copy(
                     fontWeight = FontWeight.Black,
-                    color = Color.LightGray
+                    color = NeoTextSecondary
                 )
             )
         }

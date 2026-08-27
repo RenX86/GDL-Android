@@ -46,7 +46,7 @@ fun Modifier.neoBrutalist(
     shadowOffset: Dp = 6.dp,
     shadowColor: Color? = null
 ): Modifier = composed {
-    val actualShadowColor = shadowColor ?: NeoBorder
+    val actualShadowColor = shadowColor ?: NeoTheme.colors.shadow
     val actualBorderColor = NeoBorder
     this
         .drawBehind {
@@ -81,7 +81,7 @@ fun NeoButton(
         modifier = modifier
             .offset(x = offset, y = offset) // Move the button itself
             .neoBrutalist(
-                backgroundColor = if (enabled) color else Color.LightGray, 
+                backgroundColor = if (enabled) color else NeoTheme.colors.surface, 
                 shadowOffset = shadow
             )
             .clickable(
@@ -113,9 +113,11 @@ fun NeoTextField(
 ) {
     var isFocused by remember { mutableStateOf(false) }
     
-    // Instead of using alpha (which makes it transparent and shows the black shadow underneath),
-    // we use a solid, pale yellow color for the focused state.
-    val bgColor = if (isFocused) Color(0xFFFFF7C2) else Color.White
+    val bgColor = if (isFocused) {
+        NeoTheme.colors.yellow.copy(alpha = 0.2f)
+    } else {
+        NeoTheme.colors.surface
+    }
     val shadow = if (isFocused) 8.dp else 6.dp
 
     Box(
@@ -126,7 +128,7 @@ fun NeoTextField(
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(modifier = Modifier.weight(1f)) {
                 if (value.isEmpty()) {
-                    Text(text = placeholder, color = Color.Gray, fontWeight = FontWeight.Bold)
+                    Text(text = placeholder, color = NeoTextSecondary, fontWeight = FontWeight.Bold)
                 }
                 BasicTextField(
                     value = value,
