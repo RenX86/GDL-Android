@@ -7,8 +7,8 @@ Whenever you get a cool idea, just drop it in here so it stays with the code!
 - [x] **Auto-Install Updates:** After downloading the APK via the new update checker, automatically prompt the user to install it.
 - [x] **Per-Site Authentication:** Create a dedicated UI to manage logins and cookies for specific sites (Twitter, Pixiv, etc.) individually.
 - [x] **Download History:** A visual history log showing past downloads, separate from the active queue.
-- [ ] **Scheduled Downloads:** Allow users to queue up downloads that only trigger when on Wi-Fi or charging.
-- [ ] **Bulk Import:** A way to paste a massive list of URLs and have the app queue them all up automatically.
+- ~~[ ] **Scheduled Downloads:** Allow users to queue up downloads that only trigger when on Wi-Fi or charging.~~
+- ~~[ ] **Bulk Import:** A way to paste a massive list of URLs and have the app queue them all up automatically.~~
 - [ ] **Advanced gallery-dl Config:** A dedicated text field in settings for power users to pass raw, custom command-line arguments (e.g., `--write-metadata`, `--range`, `--chapter-filter`).
 - ~~[ ] **In-App Fullscreen Gallery:** Upgrade the current gallery grid so tapping an image opens a beautiful fullscreen viewer with pinch-to-zoom and swipe gestures.~~
 - ~~[ ] **Notification Quick Actions:** Add "Pause", "Resume", and "Cancel" buttons directly inside the Android foreground service download notification.~~
@@ -18,12 +18,13 @@ Whenever you get a cool idea, just drop it in here so it stays with the code!
 - [ ] **WebP Support:** Add Cwebp Module in app to convert images to webp format to save space.
 - [ ] **Smart Duplicate Detection:** Use lightweight perceptual hashing (pHash) to detect if you've already downloaded an identical image to save storage and keep the gallery clean.
 
-## 🛠️ Refactoring & Tech Debt
-- [ ] Move hardcoded Neobrutalist colors into a centralized theme configuration file.
-- [x] Setup a proper local Room Database for caching download history so it persists across app restarts.
-
-## 🐛 Known Bugs
-- [ ] *(List any bugs you find here)*
+## 🤖 Automations Ideas (Future)
+- [ ] **Scheduled Downloads / Subscriptions:**
+  - Allow users to "Subscribe" to a profile/URL instead of a one-time download.
+  - Add a "Subscriptions" tab to manage saved URLs.
+  - Use `gallery-dl`'s `--download-archive` feature to only fetch new posts.
+  - Implement a manual "Sync All Now" button as phase 1.
+  - Implement Android `WorkManager` for daily/weekly background syncing (phase 2).
+  - Add conditions like "Download on Wi-Fi only" or "Download while charging".
 
 ---
-

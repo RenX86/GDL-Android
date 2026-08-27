@@ -5,6 +5,8 @@ import com.chaquo.python.Python
 import com.chaquo.python.android.AndroidPlatform
 import com.renx86.gdlapp.data.CookiePreferences
 import com.renx86.gdlapp.data.DownloadPreferences
+import com.renx86.gdlapp.data.CompressionPreferences
+import com.renx86.gdlapp.util.WebPConverter
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -17,7 +19,8 @@ import javax.inject.Singleton
 class GalleryDlBridge @Inject constructor(
     @ApplicationContext private val context: Context,
     private val prefs: DownloadPreferences,
-    private val cookiePrefs: CookiePreferences
+    private val cookiePrefs: CookiePreferences,
+    private val compressionPrefs: CompressionPreferences
 ) {
     private var currentDownloadDir: String = ""
 
@@ -75,8 +78,17 @@ class GalleryDlBridge @Inject constructor(
         val result = module.callAttr("download", url).toString()
         val jsonResult = JSONObject(result)
 
-        // STEP 2: The Migration (SAF Copy)
         if (jsonResult.optString("status") == "ok") {
+            // STEP 2: Optional WebP Auto-Conversion
+            if (compressionPrefs.isAutoConvertEnabled()) {
+                val quality = compressionPrefs.getWebpQuality()
+                val keepOriginal = compressionPrefs.isKeepOriginalEnabled()
+                tempCacheDir.walkTopDown().filter { it.isFile }.forEach { file ->
+                    WebPConverter.convertFileToWebp(file, quality, keepOriginal)
+                }
+            }
+            
+            // STEP 3: Move from App Storage to User Chosen Directory (SAF)
             try {
                 copyCacheToSafDestination(tempCacheDir)
             } catch (e: Exception) {
@@ -85,7 +97,7 @@ class GalleryDlBridge @Inject constructor(
                     put("message", "Failed to move files to SAF destination: ${e.message}")
                 }
             } finally {
-                // STEP 3: Cleanup
+                // STEP 4: Cleanup
                 tempCacheDir.deleteRecursively()
             }
         } else {

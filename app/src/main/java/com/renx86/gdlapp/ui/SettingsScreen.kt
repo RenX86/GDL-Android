@@ -30,11 +30,16 @@ fun SettingsScreen(
     val prefs = remember { DownloadPreferences(context) }
     val cookiePrefs = remember { CookiePreferences(context) }
     val themePrefs = remember { ThemePreferences(context) }
+    val compPrefs = remember { com.renx86.gdlapp.data.CompressionPreferences(context) }
     
     var currentMode by remember { mutableStateOf(themePrefs.getThemeMode()) }
     var currentStyle by remember { mutableStateOf(themePrefs.getThemeStyle()) }
     var downloadPath by remember { mutableStateOf(prefs.getDownloadPath()) }
     var isHiddenFolderEnabled by remember { mutableStateOf(prefs.isHiddenFolderEnabled()) }
+    
+    var autoConvertWebp by remember { mutableStateOf(compPrefs.isAutoConvertEnabled()) }
+    var webpQuality by remember { mutableStateOf(compPrefs.getWebpQuality().toFloat()) }
+    var keepOriginalFiles by remember { mutableStateOf(compPrefs.isKeepOriginalEnabled()) }
     
     var updateStatus by remember { mutableStateOf<String?>(null) }
     var updateApkUrl by remember { mutableStateOf<String?>(null) }
@@ -202,6 +207,29 @@ fun SettingsScreen(
                 onCookiesUpdated = {
                     loggedSites = cookiePrefs.getLoggedSites()
                 }
+            )
+        }
+
+        item {
+            SettingsCompressionSection(
+                autoConvert = autoConvertWebp,
+                onAutoConvertChange = { 
+                    autoConvertWebp = it
+                    compPrefs.setAutoConvertEnabled(it)
+                },
+                quality = webpQuality,
+                onQualityChange = { 
+                    webpQuality = it
+                    compPrefs.setWebpQuality(it.toInt())
+                },
+                keepOriginal = keepOriginalFiles,
+                onKeepOriginalChange = {
+                    keepOriginalFiles = it
+                    compPrefs.setKeepOriginalEnabled(it)
+                },
+                downloadPath = downloadPath,
+                context = context,
+                scope = scope
             )
         }
 

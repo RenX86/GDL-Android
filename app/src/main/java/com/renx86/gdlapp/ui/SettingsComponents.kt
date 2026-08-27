@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Cookie
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.SdStorage
@@ -494,6 +495,207 @@ fun SettingsAuthSection(
 }
 
 @Composable
+fun SettingsCompressionSection(
+    autoConvert: Boolean,
+    onAutoConvertChange: (Boolean) -> Unit,
+    quality: Float,
+    onQualityChange: (Float) -> Unit,
+    keepOriginal: Boolean,
+    onKeepOriginalChange: (Boolean) -> Unit,
+    downloadPath: String,
+    context: Context,
+    scope: kotlinx.coroutines.CoroutineScope
+) {
+    var isConverting by remember { mutableStateOf(false) }
+    var convertProgress by remember { mutableFloatStateOf(0f) }
+    var convertText by remember { mutableStateOf("") }
+
+    NeoCollapsibleCard(
+        title = "COMPRESSION",
+        icon = { Icon(Icons.Default.Image, contentDescription = "Compression", tint = NeoBorder) },
+        backgroundColor = NeoPink,
+        initiallyExpanded = false
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column {
+                Text("AUTO-CONVERT", fontWeight = FontWeight.Black, fontSize = 14.sp, color = NeoBorder)
+                Text("Convert new downloads to WebP", fontSize = 11.sp, color = NeoTextSecondary)
+            }
+            Switch(
+                checked = autoConvert,
+                onCheckedChange = onAutoConvertChange,
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = NeoYellow,
+                    checkedTrackColor = NeoBorder,
+                    uncheckedThumbColor = NeoTheme.colors.surface,
+                    uncheckedTrackColor = NeoTextSecondary
+                )
+            )
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column {
+                Text("KEEP ORIGINALS", fontWeight = FontWeight.Black, fontSize = 14.sp, color = NeoBorder)
+                Text("Don't delete original JPG/PNG", fontSize = 11.sp, color = NeoTextSecondary)
+            }
+            Switch(
+                checked = keepOriginal,
+                onCheckedChange = onKeepOriginalChange,
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = NeoYellow,
+                    checkedTrackColor = NeoBorder,
+                    uncheckedThumbColor = NeoTheme.colors.surface,
+                    uncheckedTrackColor = NeoTextSecondary
+                )
+            )
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text("WEBP QUALITY: ${quality.toInt()}%", fontWeight = FontWeight.Black, fontSize = 14.sp, color = NeoBorder)
+        Slider(
+            value = quality,
+            onValueChange = onQualityChange,
+            valueRange = 10f..100f,
+            steps = 8,
+            colors = SliderDefaults.colors(
+                thumbColor = NeoYellow,
+                activeTrackColor = NeoBorder,
+                inactiveTrackColor = NeoTextSecondary
+            )
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        if (isConverting) {
+            Text(convertText, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = NeoBorder)
+            Spacer(modifier = Modifier.height(8.dp))
+            LinearProgressIndicator(
+                progress = { convertProgress },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(12.dp)
+                    .border(2.dp, NeoBorder),
+                color = NeoYellow,
+                trackColor = NeoTheme.colors.surface,
+            )
+        } else {
+            NeoButton(
+                text = "Compress Existing Library",
+                onClick = {
+                    isConverting = true
+                    convertProgress = 0f
+                    convertText = "Scanning..."
+                    
+                    scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                        try {
+                            val allFiles = mutableListOf<androidx.documentfile.provider.DocumentFile>()
+                            val allJavaFiles = mutableListOf<File>()
+                            var total = 0
+                            
+                            if (downloadPath.startsWith("content://")) {
+                                val uri = android.net.Uri.parse(downloadPath)
+                                val docFile = androidx.documentfile.provider.DocumentFile.fromTreeUri(context, uri)
+                                if (docFile != null) {
+                                    fun walk(dir: androidx.documentfile.provider.DocumentFile) {
+                                        for (child in dir.listFiles()) {
+                                            if (child.isDirectory) walk(child)
+                                            else {
+                                                val ext = child.name?.substringAfterLast('.', "")?.lowercase()
+                                                if (ext in listOf("jpg", "jpeg", "png")) {
+                                                    allFiles.add(child)
+                                                }
+                                            }
+                                        }
+                                    }
+                                    walk(docFile)
+                                    total = allFiles.size
+                                }
+                            } else {
+                                val dir = File(downloadPath)
+                                if (dir.exists()) {
+                                    allJavaFiles.addAll(dir.walkTopDown().filter { 
+                                        it.isFile && it.extension.lowercase() in listOf("jpg", "jpeg", "png") 
+                                    })
+                                    total = allJavaFiles.size
+                                }
+                            }
+
+                            if (total == 0) {
+                                convertText = "No JPG/PNG files found."
+                                kotlinx.coroutines.delay(2000)
+                                isConverting = false
+                                return@launch
+                            }
+
+                            var converted = 0
+                            val targetQuality = quality.toInt()
+
+                            if (allJavaFiles.isNotEmpty()) {
+                                for (file in allJavaFiles) {
+                                    convertText = "Converting ${file.name}..."
+                                    com.renx86.gdlapp.util.WebPConverter.convertFileToWebp(file, targetQuality, keepOriginal)
+                                    converted++
+                                    convertProgress = converted.toFloat() / total
+                                }
+                            } else {
+                                // SAF conversion is harder because WebPConverter takes a java.io.File
+                                // For now, we'll download to cache, convert, and overwrite
+                                for (docFile in allFiles) {
+                                    convertText = "Converting ${docFile.name}..."
+                                    try {
+                                        val tempFile = File(context.cacheDir, docFile.name ?: "temp.jpg")
+                                        context.contentResolver.openInputStream(docFile.uri)?.use { input ->
+                                            tempFile.outputStream().use { output -> input.copyTo(output) }
+                                        }
+                                        val webpFile = com.renx86.gdlapp.util.WebPConverter.convertFileToWebp(tempFile, targetQuality, keepOriginal)
+                                        if (webpFile.exists() && webpFile.name.endsWith(".webp")) {
+                                            val parent = docFile.parentFile
+                                            if (!keepOriginal) {
+                                                docFile.delete()
+                                            }
+                                            parent?.createFile("image/webp", webpFile.name)?.let { newDoc ->
+                                                context.contentResolver.openOutputStream(newDoc.uri)?.use { out ->
+                                                    webpFile.inputStream().use { input -> input.copyTo(out) }
+                                                }
+                                            }
+                                        }
+                                        if (webpFile.exists()) webpFile.delete()
+                                        if (tempFile.exists()) tempFile.delete() // just in case
+                                    } catch (e: Exception) {}
+                                    converted++
+                                    convertProgress = converted.toFloat() / total
+                                }
+                            }
+
+                            convertText = "Done! Converted $converted files."
+                            kotlinx.coroutines.delay(2000)
+                        } catch (e: Exception) {
+                            convertText = "Error: ${e.message}"
+                            kotlinx.coroutines.delay(2000)
+                        } finally {
+                            isConverting = false
+                        }
+                    }
+                },
+                color = NeoYellow,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
+}
+
+@Composable
 fun SettingsAboutSection(
     versionName: String,
     updateStatus: String?,
@@ -579,8 +781,37 @@ fun SettingsAboutSection(
                                 .setMimeType("application/vnd.android.package-archive")
 
                             val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as android.app.DownloadManager
-                            downloadManager.enqueue(request)
+                            val downloadId = downloadManager.enqueue(request)
                             android.widget.Toast.makeText(context, "Downloading update...", android.widget.Toast.LENGTH_SHORT).show()
+                            
+                            // Listen for completion and launch install dialog
+                            val receiver = object : android.content.BroadcastReceiver() {
+                                override fun onReceive(ctx: Context, intent: Intent) {
+                                    val id = intent.getLongExtra(android.app.DownloadManager.EXTRA_DOWNLOAD_ID, -1)
+                                    if (id == downloadId) {
+                                        try {
+                                            ctx.unregisterReceiver(this)
+                                        } catch (e: Exception) {}
+                                        
+                                        try {
+                                            val uri = downloadManager.getUriForDownloadedFile(downloadId)
+                                            val installIntent = Intent(Intent.ACTION_VIEW)
+                                            installIntent.setDataAndType(uri, "application/vnd.android.package-archive")
+                                            installIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION
+                                            ctx.startActivity(installIntent)
+                                        } catch (e: Exception) {
+                                            e.printStackTrace()
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                                context.registerReceiver(receiver, android.content.IntentFilter(android.app.DownloadManager.ACTION_DOWNLOAD_COMPLETE), Context.RECEIVER_EXPORTED)
+                            } else {
+                                context.registerReceiver(receiver, android.content.IntentFilter(android.app.DownloadManager.ACTION_DOWNLOAD_COMPLETE))
+                            }
+
                         } catch (e: Exception) {
                             val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/RenX86/GDL-Android/releases/latest"))
                             context.startActivity(intent)
