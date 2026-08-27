@@ -135,17 +135,16 @@ fun WebViewLoginScreen(
                     val webView = webViewRef ?: return@NeoButton
                     val userAgent = webView.settings.userAgentString
 
+                    val domain = android.net.Uri.parse(currentUrl).host
+                        ?.removePrefix("www.") ?: currentUrl
+                    
+                    cookiePrefs.addLoggedSite(domain)
+                    cookiePrefs.setUserAgent(userAgent)
+
                     val cookieFile = File(context.filesDir, CookiePreferences.COOKIE_FILENAME)
-                    val success = CookieExporter.exportFromWebView(currentUrl, cookieFile)
+                    val success = CookieExporter.exportAll(cookiePrefs.getLoggedSites(), cookieFile)
 
                     if (success) {
-                        // Save the domain and user-agent for matching during downloads
-                        val domain = android.net.Uri.parse(currentUrl).host
-                            ?.removePrefix("www.") ?: currentUrl
-                        cookiePrefs.setCookieDomain(domain)
-                        cookiePrefs.setUserAgent(userAgent)
-                        cookiePrefs.setCookiesEnabled(true)
-
                         Toast.makeText(context, "Cookies saved for $domain ✓", Toast.LENGTH_SHORT).show()
                         onCookiesSaved()
                     } else {

@@ -236,14 +236,12 @@ fun SettingsStorageSection(
 
 @Composable
 fun SettingsAuthSection(
-    cookieDomain: String?,
-    cookiesEnabled: Boolean,
+    loggedSites: Set<String>,
     quickSites: List<Pair<String, String>>,
     onLoginToSite: (String) -> Unit,
     cookiePrefs: CookiePreferences,
     context: Context,
-    onCookiesCleared: () -> Unit,
-    onCookiesImported: (String) -> Unit
+    onCookiesUpdated: () -> Unit
 ) {
     var showAdvancedAuth by remember { mutableStateOf(false) }
     var customUrl by remember { mutableStateOf("") }
@@ -256,7 +254,7 @@ fun SettingsAuthSection(
         backgroundColor = NeoOrange,
         initiallyExpanded = false,
         titleTrailing = {
-            if (cookieDomain != null && cookiesEnabled) {
+            if (loggedSites.isNotEmpty()) {
                 Box(
                     modifier = Modifier
                         .background(NeoGreen)
@@ -272,18 +270,17 @@ fun SettingsAuthSection(
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            cookieDomain ?: "",
+                            "${loggedSites.size} Active",
                             fontWeight = FontWeight.Black,
                             fontSize = 10.sp,
-                            color = NeoBorder,
-                            maxLines = 1
+                            color = NeoBorder
                         )
                     }
                 }
             }
         }
     ) {
-        if (cookieDomain == null || !cookiesEnabled) {
+        if (loggedSites.isEmpty()) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -297,10 +294,44 @@ fun SettingsAuthSection(
                     color = NeoTextSecondary
                 )
             }
-            Spacer(modifier = Modifier.height(16.dp))
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                loggedSites.forEach { site ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .neoBrutalist(backgroundColor = NeoTheme.colors.surface, shadowOffset = 3.dp)
+                            .padding(12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.CheckCircle, contentDescription = "Active", tint = NeoGreen, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(site, fontWeight = FontWeight.Black, color = NeoBorder)
+                        }
+                        
+                        Text(
+                            "REMOVE",
+                            color = NeoPink,
+                            fontWeight = FontWeight.Black,
+                            fontSize = 12.sp,
+                            modifier = Modifier.clickable {
+                                cookiePrefs.removeLoggedSite(site)
+                                val cookieFile = File(context.filesDir, CookiePreferences.COOKIE_FILENAME)
+                                CookieExporter.exportAll(cookiePrefs.getLoggedSites(), cookieFile)
+                                android.webkit.CookieManager.getInstance().setCookie("https://$site", "")
+                                android.webkit.CookieManager.getInstance().flush()
+                                onCookiesUpdated()
+                            }
+                        )
+                    }
+                }
+            }
         }
 
-        Text("QUICK LOGIN", fontWeight = FontWeight.Black, fontSize = 14.sp, color = NeoBorder)
+        Spacer(modifier = Modifier.height(24.dp))
+        Text("ADD ACCOUNT", fontWeight = FontWeight.Black, fontSize = 14.sp, color = NeoBorder)
         Spacer(modifier = Modifier.height(8.dp))
 
         Row(
@@ -387,19 +418,19 @@ fun SettingsAuthSection(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     NeoButton(
-                        text = "Paste",
+                        text = "Paste Cookies",
                         onClick = { showPasteDialog = true },
                         color = NeoBlue,
                         modifier = Modifier.weight(1f)
                     )
                     NeoButton(
-                        text = "Clear",
+                        text = "Clear All",
                         onClick = {
                             val cookieFile = File(context.filesDir, CookiePreferences.COOKIE_FILENAME)
                             if (cookieFile.exists()) cookieFile.delete()
                             cookiePrefs.clearAll()
-                            onCookiesCleared()
-                            android.widget.Toast.makeText(context, "Cookies cleared", android.widget.Toast.LENGTH_SHORT).show()
+                            onCookiesUpdated()
+                            android.widget.Toast.makeText(context, "All cookies cleared", android.widget.Toast.LENGTH_SHORT).show()
                         },
                         color = NeoPink,
                         modifier = Modifier.weight(1f)
@@ -436,14 +467,12 @@ fun SettingsAuthSection(
                                         val cookieFile = File(context.filesDir, CookiePreferences.COOKIE_FILENAME)
                                         val success = CookieExporter.exportFromPaste(pasteText, cookieFile)
                                         if (success) {
-                                            cookiePrefs.setCookieDomain("manual-import")
-                                            cookiePrefs.setCookiesEnabled(true)
-                                            onCookiesImported("manual-import")
+                                            android.widget.Toast.makeText(context, "Cookies imported!", android.widget.Toast.LENGTH_SHORT).show()
                                             showPasteDialog = false
                                             pasteText = ""
-                                            android.widget.Toast.makeText(context, "Cookies imported ✓", android.widget.Toast.LENGTH_SHORT).show()
+                                            onCookiesUpdated()
                                         } else {
-                                            android.widget.Toast.makeText(context, "Invalid format.", android.widget.Toast.LENGTH_SHORT).show()
+                                            android.widget.Toast.makeText(context, "Invalid format", android.widget.Toast.LENGTH_SHORT).show()
                                         }
                                     },
                                     color = NeoGreen,
@@ -451,11 +480,8 @@ fun SettingsAuthSection(
                                 )
                                 NeoButton(
                                     text = "Cancel",
-                                    onClick = {
-                                        showPasteDialog = false
-                                        pasteText = ""
-                                    },
-                                    color = NeoPink,
+                                    onClick = { showPasteDialog = false },
+                                    color = NeoTheme.colors.surface,
                                     modifier = Modifier.weight(1f)
                                 )
                             }

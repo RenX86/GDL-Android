@@ -66,8 +66,7 @@ fun SettingsScreen(
     )
 
     // Cookie state
-    var cookieDomain by remember { mutableStateOf(cookiePrefs.getCookieDomain()) }
-    var cookiesEnabled by remember { mutableStateOf(cookiePrefs.areCookiesEnabled()) }
+    var loggedSites by remember { mutableStateOf(cookiePrefs.getLoggedSites()) }
 
     var totalFiles by remember { mutableIntStateOf(0) }
     var totalSize by remember { mutableLongStateOf(0L) }
@@ -195,19 +194,13 @@ fun SettingsScreen(
 
         item {
             SettingsAuthSection(
-                cookieDomain = cookieDomain,
-                cookiesEnabled = cookiesEnabled,
+                loggedSites = loggedSites,
                 quickSites = quickSites,
                 onLoginToSite = onLoginToSite,
                 cookiePrefs = cookiePrefs,
                 context = context,
-                onCookiesCleared = {
-                    cookieDomain = null
-                    cookiesEnabled = false
-                },
-                onCookiesImported = { domain ->
-                    cookieDomain = domain
-                    cookiesEnabled = true
+                onCookiesUpdated = {
+                    loggedSites = cookiePrefs.getLoggedSites()
                 }
             )
         }

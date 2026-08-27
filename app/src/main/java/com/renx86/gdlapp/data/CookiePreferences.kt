@@ -17,28 +17,31 @@ class CookiePreferences @Inject constructor(
     private val prefs = context.getSharedPreferences("gdl_cookie_prefs", Context.MODE_PRIVATE)
 
     companion object {
-        private const val KEY_COOKIE_DOMAIN = "cookie_domain"
+        private const val KEY_LOGGED_SITES = "logged_sites"
         private const val KEY_COOKIE_USER_AGENT = "cookie_user_agent"
-        private const val KEY_COOKIES_ENABLED = "cookies_enabled"
         const val COOKIE_FILENAME = "cookies.txt"
     }
 
-    fun getCookieDomain(): String? = prefs.getString(KEY_COOKIE_DOMAIN, null)
+    fun getLoggedSites(): Set<String> {
+        return prefs.getStringSet(KEY_LOGGED_SITES, emptySet()) ?: emptySet()
+    }
 
-    fun setCookieDomain(domain: String) {
-        prefs.edit().putString(KEY_COOKIE_DOMAIN, domain).apply()
+    fun addLoggedSite(domain: String) {
+        val current = getLoggedSites().toMutableSet()
+        current.add(domain)
+        prefs.edit().putStringSet(KEY_LOGGED_SITES, current).apply()
+    }
+    
+    fun removeLoggedSite(domain: String) {
+        val current = getLoggedSites().toMutableSet()
+        current.remove(domain)
+        prefs.edit().putStringSet(KEY_LOGGED_SITES, current).apply()
     }
 
     fun getUserAgent(): String? = prefs.getString(KEY_COOKIE_USER_AGENT, null)
 
     fun setUserAgent(userAgent: String) {
         prefs.edit().putString(KEY_COOKIE_USER_AGENT, userAgent).apply()
-    }
-
-    fun areCookiesEnabled(): Boolean = prefs.getBoolean(KEY_COOKIES_ENABLED, false)
-
-    fun setCookiesEnabled(enabled: Boolean) {
-        prefs.edit().putBoolean(KEY_COOKIES_ENABLED, enabled).apply()
     }
 
     fun clearAll() {

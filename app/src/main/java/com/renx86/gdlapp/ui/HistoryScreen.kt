@@ -220,7 +220,6 @@ fun NeoHistoryCard(
     } catch (e: Exception) {
         "URL"
     }
-    val badgeText = host.take(2).uppercase()
 
     val formatter = SimpleDateFormat("MMM dd, h:mm a", Locale.getDefault())
     val dateString = formatter.format(Date(item.timestamp))
@@ -250,28 +249,7 @@ fun NeoHistoryCard(
                 modifier = Modifier.padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Site Badge (Favicon fallback)
-                SubcomposeAsyncImage(
-                    model = "https://www.google.com/s2/favicons?domain=${host}&sz=64",
-                    contentDescription = host,
-                    modifier = Modifier
-                        .size(48.dp)
-                        .background(NeoTheme.colors.background)
-                        .border(3.dp, NeoBorder),
-                    contentScale = ContentScale.Crop,
-                    loading = {
-                        Box(contentAlignment = Alignment.Center) {
-                            Text(badgeText, fontWeight = FontWeight.Black, fontSize = 20.sp, color = NeoBorder)
-                        }
-                    },
-                    error = {
-                        Box(contentAlignment = Alignment.Center) {
-                            Text(badgeText, fontWeight = FontWeight.Black, fontSize = 20.sp, color = NeoBorder)
-                        }
-                    }
-                )
 
-                Spacer(modifier = Modifier.width(16.dp))
 
                 // Text content
                 Column(modifier = Modifier.weight(1f)) {
