@@ -74,12 +74,15 @@ fun FileBrowserScreen(modifier: Modifier = Modifier) {
     val files = remember(currentDocDir, currentJavaDir) {
         if (isSaf && currentDocDir != null) {
             currentDocDir!!.listFiles()
+                .filter { !(it.name?.startsWith(".") ?: false) }
                 .map { FileNode(it.name ?: "Unknown", it.isDirectory, it.uri, it.lastModified(), documentFile = it) }
                 .sortedWith(compareBy({ !it.isDirectory }, { it.name }))
         } else if (currentJavaDir != null) {
-            currentJavaDir!!.listFiles()?.map { 
-                FileNode(it.name, it.isDirectory, android.net.Uri.fromFile(it), it.lastModified(), javaFile = it) 
-            }?.sortedWith(compareBy({ !it.isDirectory }, { it.name })) ?: emptyList()
+            currentJavaDir!!.listFiles()
+                ?.filter { !it.name.startsWith(".") }
+                ?.map { 
+                    FileNode(it.name, it.isDirectory, android.net.Uri.fromFile(it), it.lastModified(), javaFile = it) 
+                }?.sortedWith(compareBy({ !it.isDirectory }, { it.name })) ?: emptyList()
         } else emptyList()
     }
 
@@ -91,6 +94,7 @@ fun FileBrowserScreen(modifier: Modifier = Modifier) {
         if (isSaf && rootDocumentFile != null) {
             fun walkSaf(docFile: DocumentFile) {
                 docFile.listFiles().forEach {
+                    if (it.name?.startsWith(".") == true) return@forEach
                     if (it.isDirectory) walkSaf(it)
                     else {
                         val ext = it.name?.substringAfterLast('.', "")?.lowercase() ?: ""
@@ -104,7 +108,8 @@ fun FileBrowserScreen(modifier: Modifier = Modifier) {
         } else if (rootJavaFile != null) {
             try {
                 rootJavaFile!!.walkTopDown()
-                    .filter { it.isFile && it.extension.lowercase() in SUPPORTED_MEDIA_EXTENSIONS }
+                    .onEnter { !it.name.startsWith(".") }
+                    .filter { it.isFile && !it.name.startsWith(".") && it.extension.lowercase() in SUPPORTED_MEDIA_EXTENSIONS }
                     .forEach { result.add(FileNode(it.name, false, android.net.Uri.fromFile(it), it.lastModified(), javaFile = it)) }
             } catch (e: Exception) {}
         }
