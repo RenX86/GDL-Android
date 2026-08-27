@@ -112,6 +112,7 @@ dependencies {
 
     // Coil (image loading for gallery thumbnails)
     implementation("io.coil-kt.coil3:coil-compose:3.2.0")
+    implementation("io.coil-kt.coil3:coil-video:3.2.0")
 
     // Room Database
     val room_version = "2.6.1"

@@ -79,7 +79,7 @@ fun HomeScreen(
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
-                    "To start downloading, you need to select a folder where images will be saved.",
+                    "To start downloading, you need to select a folder where downloaded media will be saved.",
                     color = Color.DarkGray
                 )
                 Spacer(modifier = Modifier.height(24.dp))

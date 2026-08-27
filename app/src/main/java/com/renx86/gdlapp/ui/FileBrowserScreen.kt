@@ -14,6 +14,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.PlayCircle
+import androidx.compose.material.icons.filled.VideoFile
+import coil3.request.ImageRequest
+import coil3.video.VideoFrameDecoder
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -45,6 +49,8 @@ data class FileNode(
 }
 
 private val IMAGE_EXTENSIONS = setOf("jpg", "jpeg", "png", "gif", "webp", "bmp", "svg")
+private val VIDEO_EXTENSIONS = setOf("mp4", "webm", "mkv", "mov", "avi", "3gp", "flv", "m4v")
+private val SUPPORTED_MEDIA_EXTENSIONS = IMAGE_EXTENSIONS + VIDEO_EXTENSIONS
 
 @Composable
 fun FileBrowserScreen(modifier: Modifier = Modifier) {
@@ -88,7 +94,7 @@ fun FileBrowserScreen(modifier: Modifier = Modifier) {
                     if (it.isDirectory) walkSaf(it)
                     else {
                         val ext = it.name?.substringAfterLast('.', "")?.lowercase() ?: ""
-                        if (ext in IMAGE_EXTENSIONS) {
+                        if (ext in SUPPORTED_MEDIA_EXTENSIONS) {
                             result.add(FileNode(it.name ?: "Unknown", false, it.uri, it.lastModified(), documentFile = it))
                         }
                     }
@@ -98,7 +104,7 @@ fun FileBrowserScreen(modifier: Modifier = Modifier) {
         } else if (rootJavaFile != null) {
             try {
                 rootJavaFile!!.walkTopDown()
-                    .filter { it.isFile && it.extension.lowercase() in IMAGE_EXTENSIONS }
+                    .filter { it.isFile && it.extension.lowercase() in SUPPORTED_MEDIA_EXTENSIONS }
                     .forEach { result.add(FileNode(it.name, false, android.net.Uri.fromFile(it), it.lastModified(), javaFile = it)) }
             } catch (e: Exception) {}
         }
@@ -201,7 +207,7 @@ private fun GalleryView(images: List<FileNode>, context: Context) {
     if (images.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text(
-                "NO IMAGES YET",
+                "NO MEDIA YET",
                 style = MaterialTheme.typography.headlineMedium.copy(
                     fontWeight = FontWeight.Black,
                     color = Color.LightGray
@@ -218,6 +224,7 @@ private fun GalleryView(images: List<FileNode>, context: Context) {
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         items(images) { file ->
+            val isVideo = file.extension in VIDEO_EXTENSIONS
             Box(
                 modifier = Modifier
                     .aspectRatio(1f)
@@ -225,11 +232,29 @@ private fun GalleryView(images: List<FileNode>, context: Context) {
                     .neoBrutalist(backgroundColor = NeoTheme.colors.surface, borderWidth = 2.dp, shadowOffset = 3.dp)
             ) {
                 AsyncImage(
-                    model = file.uri,
+                    model = if (isVideo) {
+                        ImageRequest.Builder(context)
+                            .data(file.uri)
+                            .decoderFactory(VideoFrameDecoder.Factory())
+                            .build()
+                    } else file.uri,
                     contentDescription = file.name,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()
                 )
+                if (isVideo) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.PlayCircle,
+                            contentDescription = "Video",
+                            tint = Color.White.copy(alpha = 0.85f),
+                            modifier = Modifier.size(40.dp)
+                        )
+                    }
+                }
             }
         }
     }
@@ -310,7 +335,9 @@ private fun FolderView(
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                imageVector = if (isDir) Icons.Default.Folder else Icons.Default.Image,
+                                imageVector = if (isDir) Icons.Default.Folder 
+                                              else if (file.extension in VIDEO_EXTENSIONS) Icons.Default.VideoFile
+                                              else Icons.Default.Image,
                                 contentDescription = null,
                                 tint = NeoBorder,
                                 modifier = Modifier.size(24.dp)
@@ -362,8 +389,9 @@ private fun openFile(context: Context, fileNode: FileNode) {
             )
         }
         val intent = Intent(Intent.ACTION_VIEW).apply {
-            val mimeType = context.contentResolver.getType(uri) ?: "*/*"
-            setDataAndType(uri, mimeType)
+            val extensionMimeType = android.webkit.MimeTypeMap.getSingleton().getMimeTypeFromExtension(fileNode.extension)
+            val finalMimeType = extensionMimeType ?: context.contentResolver.getType(uri) ?: "*/*"
+            setDataAndType(uri, finalMimeType)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
         context.startActivity(Intent.createChooser(intent, "Open with"))

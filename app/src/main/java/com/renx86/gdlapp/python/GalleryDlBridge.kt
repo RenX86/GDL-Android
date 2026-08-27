@@ -130,7 +130,21 @@ class GalleryDlBridge @Inject constructor(
                 val existingFile = currentDir.findFile(file.name)
                 existingFile?.delete()
 
-                val newDocFile = currentDir.createFile("application/octet-stream", file.name)
+                val extension = file.extension.lowercase()
+                val mimeType = android.webkit.MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension)
+                    ?: when (extension) {
+                        "mp4", "m4v" -> "video/mp4"
+                        "webm" -> "video/webm"
+                        "mkv" -> "video/x-matroska"
+                        "mov" -> "video/quicktime"
+                        "jpg", "jpeg" -> "image/jpeg"
+                        "png" -> "image/png"
+                        "gif" -> "image/gif"
+                        "webp" -> "image/webp"
+                        else -> "application/octet-stream"
+                    }
+
+                val newDocFile = currentDir.createFile(mimeType, file.name)
                     ?: throw IllegalStateException("Failed to create file ${file.name}")
 
                 context.contentResolver.openOutputStream(newDocFile.uri)?.use { outStream ->
