@@ -50,17 +50,17 @@ import kotlinx.serialization.Serializable
 
 import androidx.compose.material.icons.filled.History
 
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import kotlinx.coroutines.launch
+
 // Type-safe navigation routes
-@Serializable object HomeRoute
-@Serializable object HistoryRoute
-@Serializable object FilesRoute
-@Serializable object SettingsRoute
+@Serializable object MainTabsRoute
 @Serializable data class WebViewLoginRoute(val url: String)
 
 data class BottomNavItem(
     val label: String,
-    val icon: ImageVector,
-    val route: Any
+    val icon: ImageVector
 )
 
 @AndroidEntryPoint
@@ -82,7 +82,6 @@ class MainActivity : ComponentActivity() {
         )
 
         // Request notification permission on Android 13+ (API 33+)
-        // Without this, the foreground service notification is silently hidden
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
                 != PackageManager.PERMISSION_GRANTED
@@ -91,9 +90,6 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        // Storage access is now handled gracefully inside the Compose UI.
-
-        // Extract shared URL if launched via share intent
         val sharedUrl = when (intent?.action) {
             Intent.ACTION_SEND -> intent.getStringExtra(Intent.EXTRA_TEXT) ?: ""
             else -> ""
@@ -109,49 +105,69 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun MainApp(sharedUrl: String = "") {
-
     val navController = rememberNavController()
     val viewModel: DownloadViewModel = hiltViewModel()
+
+    NavHost(
+        navController = navController,
+        startDestination = MainTabsRoute
+    ) {
+        composable<MainTabsRoute> {
+            MainTabsScreen(sharedUrl, viewModel, navController)
+        }
+        
+        composable<WebViewLoginRoute> { backStackEntry ->
+            val route = backStackEntry.toRoute<WebViewLoginRoute>()
+            WebViewLoginScreen(
+                initialUrl = route.url,
+                onCookiesSaved = {
+                    navController.popBackStack()
+                },
+                onCancel = {
+                    navController.popBackStack()
+                }
+            )
+        }
+    }
+}
+
+@Composable
+fun MainTabsScreen(sharedUrl: String, viewModel: DownloadViewModel, rootNavController: androidx.navigation.NavHostController) {
     val downloads by viewModel.downloads.collectAsState()
+    val pagerState = rememberPagerState(pageCount = { 4 })
+    val coroutineScope = rememberCoroutineScope()
 
     val navItems = listOf(
-        BottomNavItem("Home", Icons.Default.Home, HomeRoute),
-        BottomNavItem("History", Icons.Default.History, HistoryRoute),
-        BottomNavItem("Files", Icons.Default.Folder, FilesRoute),
-        BottomNavItem("Settings", Icons.Default.Settings, SettingsRoute),
+        BottomNavItem("Home", Icons.Default.Home),
+        BottomNavItem("History", Icons.Default.History),
+        BottomNavItem("Files", Icons.Default.Folder),
+        BottomNavItem("Settings", Icons.Default.Settings)
     )
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         containerColor = NeoBackground,
         bottomBar = {
-            // Custom Neobrutalist bottom bar
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .navigationBarsPadding() // Outer padding so the border doesn't wrap the system buttons
+                    .navigationBarsPadding()
                     .background(NeoBackground)
                     .border(width = 3.dp, color = NeoBorder)
                     .padding(vertical = 8.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                val currentEntry by navController.currentBackStackEntryAsState()
-                val currentDestination = currentEntry?.destination
-
-                navItems.forEach { item ->
-                    val isSelected = currentDestination?.hasRoute(item.route::class) == true
+                navItems.forEachIndexed { index, item ->
+                    val isSelected = pagerState.currentPage == index
                     val bgColor = if (isSelected) NeoYellow else Color.Transparent
 
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier
                             .clickable {
-                                navController.navigate(item.route) {
-                                    popUpTo(navController.graph.findStartDestination().id) {
-                                        inclusive = true
-                                    }
-                                    launchSingleTop = true
+                                coroutineScope.launch {
+                                    pagerState.animateScrollToPage(index)
                                 }
                             }
                             .then(
@@ -179,57 +195,32 @@ fun MainApp(sharedUrl: String = "") {
             }
         }
     ) { innerPadding ->
-        NavHost(
-            navController = navController,
-            startDestination = HomeRoute,
-            modifier = Modifier.padding(innerPadding)
-        ) {
-            composable<HomeRoute> {
-                HomeScreen(
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier
+                .padding(innerPadding)
+                .fillMaxSize()
+        ) { page ->
+            when (page) {
+                0 -> HomeScreen(
                     initialUrl = sharedUrl,
                     onDownload = { url ->
                         viewModel.enqueue(url)
-                        // Navigate to History using the same pattern as bottom nav
-                        navController.navigate(HistoryRoute) {
-                            popUpTo(navController.graph.findStartDestination().id) {
-                                inclusive = true
-                            }
-                            launchSingleTop = true
+                        coroutineScope.launch {
+                            pagerState.animateScrollToPage(1) // Jump to History
                         }
                     }
                 )
-            }
-
-            composable<HistoryRoute> {
-                HistoryScreen(
+                1 -> HistoryScreen(
                     downloads = downloads,
                     onRetry = { viewModel.retry(it) },
                     onRemove = { viewModel.removeItem(it) },
                     onClearAll = { viewModel.clearAllHistory() }
                 )
-            }
-
-            composable<FilesRoute> {
-                FileBrowserScreen()
-            }
-
-            composable<SettingsRoute> {
-                SettingsScreen(
+                2 -> FileBrowserScreen()
+                3 -> SettingsScreen(
                     onLoginToSite = { url ->
-                        navController.navigate(WebViewLoginRoute(url))
-                    }
-                )
-            }
-
-            composable<WebViewLoginRoute> { backStackEntry ->
-                val route = backStackEntry.toRoute<WebViewLoginRoute>()
-                WebViewLoginScreen(
-                    initialUrl = route.url,
-                    onCookiesSaved = {
-                        navController.popBackStack()
-                    },
-                    onCancel = {
-                        navController.popBackStack()
+                        rootNavController.navigate(WebViewLoginRoute(url))
                     }
                 )
             }
