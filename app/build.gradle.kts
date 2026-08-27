@@ -17,8 +17,8 @@ android {
         applicationId = "com.renx86.gdlapp"
         minSdk = 26
         targetSdk = 36
-        versionCode = 7
-        versionName = "0.1.7"
+        versionCode = 8
+        versionName = "0.1.8"
 
         ndk {
             abiFilters += listOf("arm64-v8a")
