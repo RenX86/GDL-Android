@@ -68,7 +68,18 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        
+        val themePrefs = com.renx86.gdlapp.data.ThemePreferences(this)
+        val isDark = when (themePrefs.getThemeMode()) {
+            com.renx86.gdlapp.data.ThemeMode.LIGHT -> false
+            com.renx86.gdlapp.data.ThemeMode.DARK -> true
+            com.renx86.gdlapp.data.ThemeMode.SYSTEM -> resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK == android.content.res.Configuration.UI_MODE_NIGHT_YES
+        }
+
+        enableEdgeToEdge(
+            statusBarStyle = if (isDark) androidx.activity.SystemBarStyle.dark(android.graphics.Color.TRANSPARENT) else androidx.activity.SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT),
+            navigationBarStyle = if (isDark) androidx.activity.SystemBarStyle.dark(android.graphics.Color.TRANSPARENT) else androidx.activity.SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT)
+        )
 
         // Request notification permission on Android 13+ (API 33+)
         // Without this, the foreground service notification is silently hidden
@@ -112,14 +123,15 @@ fun MainApp(sharedUrl: String = "") {
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
+        containerColor = NeoBackground,
         bottomBar = {
             // Custom Neobrutalist bottom bar
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .navigationBarsPadding() // Outer padding so the border doesn't wrap the system buttons
                     .background(NeoBackground)
                     .border(width = 3.dp, color = NeoBorder)
-                    .navigationBarsPadding() // This is the crucial fix for the 3-button layout!
                     .padding(vertical = 8.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically
