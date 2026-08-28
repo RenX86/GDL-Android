@@ -1,5 +1,9 @@
 package com.renx86.gdlapp.ui.theme
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -74,14 +78,31 @@ fun NeoButton(
     val isPressed by interactionSource.collectIsPressedAsState()
     
     // When pressed, the shadow disappears and the button shifts down/right
-    val offset = if (isPressed && enabled) 6.dp else 0.dp
-    val shadow = if (isPressed && enabled) 0.dp else 6.dp
+    val targetOffset = if (isPressed && enabled) 6.dp else 0.dp
+    val targetShadow = if (isPressed && enabled) 0.dp else 6.dp
+    
+    val offset by animateDpAsState(
+        targetValue = targetOffset,
+        animationSpec = spring(dampingRatio = 0.4f, stiffness = 800f),
+        label = "btnOffset"
+    )
+    val shadow by animateDpAsState(
+        targetValue = targetShadow,
+        animationSpec = spring(dampingRatio = 0.4f, stiffness = 800f),
+        label = "btnShadow"
+    )
+
+    val bgColor by animateColorAsState(
+        targetValue = if (enabled) color else NeoTheme.colors.surface,
+        animationSpec = tween(150),
+        label = "btnBgColor"
+    )
 
     Box(
         modifier = modifier
             .offset(x = offset, y = offset) // Move the button itself
             .neoBrutalist(
-                backgroundColor = if (enabled) color else NeoTheme.colors.surface, 
+                backgroundColor = bgColor, 
                 shadowOffset = shadow
             )
             .clickable(
@@ -113,12 +134,16 @@ fun NeoTextField(
 ) {
     var isFocused by remember { mutableStateOf(false) }
     
-    val bgColor = if (isFocused) {
-        NeoTheme.colors.yellow
-    } else {
-        NeoTheme.colors.surface
-    }
-    val shadow = if (isFocused) 8.dp else 6.dp
+    val bgColor by animateColorAsState(
+        targetValue = if (isFocused) NeoTheme.colors.yellow else NeoTheme.colors.surface,
+        animationSpec = tween(200),
+        label = "tfBgColor"
+    )
+    val shadow by animateDpAsState(
+        targetValue = if (isFocused) 8.dp else 6.dp,
+        animationSpec = tween(200),
+        label = "tfShadow"
+    )
 
     Box(
         modifier = modifier
@@ -165,7 +190,7 @@ fun NeoCollapsibleCard(
     var expanded by remember { mutableStateOf(initiallyExpanded) }
     val chevronRotation by androidx.compose.animation.core.animateFloatAsState(
         targetValue = if (expanded) 180f else 0f,
-        animationSpec = androidx.compose.animation.core.tween(durationMillis = 250),
+        animationSpec = tween(durationMillis = 250),
         label = "chevron"
     )
 
@@ -208,10 +233,10 @@ fun NeoCollapsibleCard(
             androidx.compose.animation.AnimatedVisibility(
                 visible = expanded,
                 enter = androidx.compose.animation.expandVertically(
-                    animationSpec = androidx.compose.animation.core.tween(250)
+                    animationSpec = tween(250)
                 ),
                 exit = androidx.compose.animation.shrinkVertically(
-                    animationSpec = androidx.compose.animation.core.tween(250)
+                    animationSpec = tween(250)
                 )
             ) {
                 Column(
@@ -238,13 +263,30 @@ fun <T> NeoSegmentedToggle(
     ) {
         options.forEach { option ->
             val isSelected = option == selectedOption
+            
+            val bgColor by animateColorAsState(
+                targetValue = if (isSelected) NeoYellow else NeoTheme.colors.surface,
+                animationSpec = tween(150),
+                label = "toggleBgColor"
+            )
+            val borderWidth by animateDpAsState(
+                targetValue = if (isSelected) 3.dp else 2.dp,
+                animationSpec = tween(150),
+                label = "toggleBorder"
+            )
+            val shadowOffset by animateDpAsState(
+                targetValue = if (isSelected) 0.dp else 4.dp,
+                animationSpec = tween(150),
+                label = "toggleShadow"
+            )
+
             Box(
                 modifier = Modifier
                     .weight(1f)
                     .neoBrutalist(
-                        backgroundColor = if (isSelected) NeoYellow else NeoTheme.colors.surface,
-                        borderWidth = if (isSelected) 3.dp else 2.dp,
-                        shadowOffset = if (isSelected) 0.dp else 4.dp
+                        backgroundColor = bgColor,
+                        borderWidth = borderWidth,
+                        shadowOffset = shadowOffset
                     )
                     .clickable { onOptionSelected(option) }
                     .padding(vertical = 10.dp, horizontal = 4.dp),

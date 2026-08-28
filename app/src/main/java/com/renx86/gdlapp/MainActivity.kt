@@ -111,7 +111,11 @@ fun MainApp(sharedUrl: String = "") {
 
     NavHost(
         navController = navController,
-        startDestination = MainTabsRoute
+        startDestination = MainTabsRoute,
+        enterTransition = { androidx.compose.animation.slideInHorizontally(androidx.compose.animation.core.tween(250)) { it } },
+        exitTransition = { androidx.compose.animation.slideOutHorizontally(androidx.compose.animation.core.tween(250)) { -it } },
+        popEnterTransition = { androidx.compose.animation.slideInHorizontally(androidx.compose.animation.core.tween(250)) { -it } },
+        popExitTransition = { androidx.compose.animation.slideOutHorizontally(androidx.compose.animation.core.tween(250)) { it } }
     ) {
         composable<MainTabsRoute> {
             MainTabsScreen(sharedUrl, viewModel, navController)
@@ -155,48 +159,66 @@ fun MainTabsScreen(sharedUrl: String, viewModel: DownloadViewModel, rootNavContr
         modifier = Modifier.fillMaxSize(),
         containerColor = NeoBackground,
         bottomBar = {
-            Row(
+            BoxWithConstraints(
                 modifier = Modifier
                     .fillMaxWidth()
                     .navigationBarsPadding()
                     .background(NeoBackground)
                     .border(width = 3.dp, color = NeoBorder)
-                    .padding(vertical = 8.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.CenterVertically
             ) {
-                navItems.forEachIndexed { index, item ->
-                    val isSelected = pagerState.currentPage == index
-                    val bgColor = if (isSelected) NeoYellow else Color.Transparent
+                val tabWidth = maxWidth / navItems.size
+                val indicatorOffset by androidx.compose.animation.core.animateDpAsState(
+                    targetValue = tabWidth * pagerState.currentPage,
+                    animationSpec = androidx.compose.animation.core.spring(dampingRatio = 0.6f, stiffness = 500f),
+                    label = "tabIndicator"
+                )
 
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
+                // Sliding Indicator background
+                Box(modifier = Modifier.matchParentSize()) {
+                    Box(
                         modifier = Modifier
-                            .clickable {
-                                coroutineScope.launch {
-                                    pagerState.animateScrollToPage(index)
+                            .offset(x = indicatorOffset)
+                            .width(tabWidth)
+                            .fillMaxHeight()
+                            .padding(horizontal = 8.dp, vertical = 6.dp)
+                            .background(NeoYellow)
+                            .border(2.dp, NeoBorder)
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    navItems.forEachIndexed { index, item ->
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable(
+                                    interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                                    indication = null
+                                ) {
+                                    coroutineScope.launch {
+                                        pagerState.animateScrollToPage(index)
+                                    }
                                 }
-                            }
-                            .then(
-                                if (isSelected) Modifier
-                                    .background(bgColor)
-                                    .border(2.dp, NeoBorder)
-                                    .padding(horizontal = 16.dp, vertical = 6.dp)
-                                else Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
+                                .padding(vertical = 4.dp)
+                        ) {
+                            Icon(
+                                item.icon,
+                                contentDescription = item.label,
+                                tint = NeoBorder,
+                                modifier = Modifier.size(24.dp)
                             )
-                    ) {
-                        Icon(
-                            item.icon,
-                            contentDescription = item.label,
-                            tint = NeoBorder,
-                            modifier = Modifier.size(24.dp)
-                        )
-                        Text(
-                            text = item.label.uppercase(),
-                            fontWeight = FontWeight.Black,
-                            fontSize = 10.sp,
-                            color = NeoBorder
-                        )
+                            Text(
+                                text = item.label.uppercase(),
+                                fontWeight = FontWeight.Black,
+                                fontSize = 10.sp,
+                                color = NeoBorder
+                            )
+                        }
                     }
                 }
             }
@@ -211,12 +233,12 @@ fun MainTabsScreen(sharedUrl: String, viewModel: DownloadViewModel, rootNavContr
             when (page) {
                 0 -> HomeScreen(
                     initialUrl = sharedUrl,
+                    activeDownloads = downloads.filter { it.status == "DOWNLOADING" || it.status == "QUEUED" },
                     onDownload = { url ->
                         viewModel.enqueue(url)
-                        coroutineScope.launch {
-                            pagerState.animateScrollToPage(1) // Jump to History
-                        }
-                    }
+                    },
+                    onRetry = { viewModel.retry(it) },
+                    onRemove = { viewModel.removeItem(it) }
                 )
                 1 -> HistoryScreen(
                     downloads = downloads,

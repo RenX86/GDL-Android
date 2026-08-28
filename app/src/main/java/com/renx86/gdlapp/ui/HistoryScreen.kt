@@ -2,6 +2,8 @@ package com.renx86.gdlapp.ui
 
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -137,63 +139,66 @@ fun HistoryScreen(
         
         Spacer(modifier = Modifier.height(16.dp))
 
-        if (filteredDownloads.isEmpty()) {
-            Column(
-                modifier = Modifier.fillMaxSize(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                Icon(
-                    Icons.Default.History,
-                    contentDescription = null,
-                    modifier = Modifier.size(80.dp),
-                    tint = NeoTextSecondary
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-                Text("NO DOWNLOADS YET", fontWeight = FontWeight.Black, color = NeoTextSecondary)
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    "Paste a URL on the Home tab to start",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = NeoTextSecondary
-                )
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 16.dp),
-                contentPadding = PaddingValues(bottom = 80.dp)
-            ) {
-                items(filteredDownloads, key = { it.id }) { item ->
-                    val dismissState = rememberSwipeToDismissBoxState(
-                        confirmValueChange = { value ->
-                            if (value == SwipeToDismissBoxValue.EndToStart) {
-                                onRemove(item.id)
-                                true
-                            } else false
-                        }
+        Crossfade(targetState = filteredDownloads.isEmpty(), animationSpec = tween(200), label = "HistoryEmptyState") { isEmpty ->
+            if (isEmpty) {
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        Icons.Default.History,
+                        contentDescription = null,
+                        modifier = Modifier.size(80.dp),
+                        tint = NeoTextSecondary
                     )
-
-                    SwipeToDismissBox(
-                        state = dismissState,
-                        backgroundContent = {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(bottom = 16.dp)
-                                    .neoBrutalist(backgroundColor = NeoPink)
-                                    .padding(horizontal = 24.dp),
-                                contentAlignment = Alignment.CenterEnd
-                            ) {
-                                Icon(Icons.Default.Delete, contentDescription = "Delete", tint = NeoBorder, modifier = Modifier.size(32.dp))
-                            }
-                        },
-                        enableDismissFromStartToEnd = false
-                    ) {
-                        NeoHistoryCard(item, onRetry, onRemove)
-                    }
                     Spacer(modifier = Modifier.height(16.dp))
+                    Text("NO DOWNLOADS YET", fontWeight = FontWeight.Black, color = NeoTextSecondary)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        "Paste a URL on the Home tab to start",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = NeoTextSecondary
+                    )
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp),
+                    contentPadding = PaddingValues(bottom = 80.dp)
+                ) {
+                    items(filteredDownloads, key = { it.id }) { item ->
+                        val dismissState = rememberSwipeToDismissBoxState(
+                            confirmValueChange = { value ->
+                                if (value == SwipeToDismissBoxValue.EndToStart) {
+                                    onRemove(item.id)
+                                    true
+                                } else false
+                            }
+                        )
+
+                        SwipeToDismissBox(
+                            state = dismissState,
+                            modifier = Modifier.animateItem(),
+                            backgroundContent = {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(bottom = 16.dp)
+                                        .neoBrutalist(backgroundColor = NeoPink)
+                                        .padding(horizontal = 24.dp),
+                                    contentAlignment = Alignment.CenterEnd
+                                ) {
+                                    Icon(Icons.Default.Delete, contentDescription = "Delete", tint = NeoBorder, modifier = Modifier.size(32.dp))
+                                }
+                            },
+                            enableDismissFromStartToEnd = false
+                        ) {
+                            NeoHistoryCard(item, onRetry, onRemove)
+                        }
+                        Spacer(modifier = Modifier.height(16.dp))
+                    }
                 }
             }
         }
@@ -208,12 +213,14 @@ fun NeoHistoryCard(
 ) {
     val context = LocalContext.current
     
-    val (statusColor, statusText) = when (item.status) {
+    val (targetColor, statusText) = when (item.status) {
         "QUEUED" -> NeoTheme.colors.textSecondary to "QUEUED"
         "DOWNLOADING" -> NeoYellow to "DOWNLOADING..."
         "COMPLETED" -> NeoGreen to "COMPLETED"
         else -> NeoPink to "FAILED"
     }
+    
+    val statusColor by androidx.compose.animation.animateColorAsState(targetValue = targetColor, animationSpec = tween(300), label = "StatusColor")
 
     val host = try {
         Uri.parse(item.url).host?.replace("www.", "") ?: "URL"

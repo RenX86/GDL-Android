@@ -18,6 +18,8 @@ import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.VideoFile
 import coil3.request.ImageRequest
 import coil3.video.VideoFrameDecoder
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -159,25 +161,27 @@ fun FileBrowserScreen(modifier: Modifier = Modifier) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        if (showGallery) {
-            // ---- GALLERY VIEW ----
-            GalleryView(images = allImages, context = context)
-        } else {
-            // ---- FOLDER VIEW ----
-            FolderView(
-                files = files,
-                isRoot = if (isSaf) currentDocDir?.uri == rootDocumentFile?.uri else currentJavaDir?.absolutePath == rootJavaFile?.absolutePath,
-                currentPathName = if (isSaf) currentDocDir?.name ?: "Downloads" else currentJavaDir?.name ?: "Downloads",
-                onNavigate = { node ->
-                    if (isSaf) currentDocDir = node.documentFile
-                    else currentJavaDir = node.javaFile
-                },
-                onBack = {
-                    if (isSaf) currentDocDir = currentDocDir?.parentFile ?: rootDocumentFile
-                    else currentJavaDir = currentJavaDir?.parentFile ?: rootJavaFile
-                },
-                context = context
-            )
+        Crossfade(targetState = showGallery, animationSpec = tween(200), label = "GalleryFolderToggle") { isGallery ->
+            if (isGallery) {
+                // ---- GALLERY VIEW ----
+                GalleryView(images = allImages, context = context)
+            } else {
+                // ---- FOLDER VIEW ----
+                FolderView(
+                    files = files,
+                    isRoot = if (isSaf) currentDocDir?.uri == rootDocumentFile?.uri else currentJavaDir?.absolutePath == rootJavaFile?.absolutePath,
+                    currentPathName = if (isSaf) currentDocDir?.name ?: "Downloads" else currentJavaDir?.name ?: "Downloads",
+                    onNavigate = { node ->
+                        if (isSaf) currentDocDir = node.documentFile
+                        else currentJavaDir = node.javaFile
+                    },
+                    onBack = {
+                        if (isSaf) currentDocDir = currentDocDir?.parentFile ?: rootDocumentFile
+                        else currentJavaDir = currentJavaDir?.parentFile ?: rootJavaFile
+                    },
+                    context = context
+                )
+            }
         }
     }
 }
@@ -228,11 +232,12 @@ private fun GalleryView(images: List<FileNode>, context: Context) {
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        items(images) { file ->
+        items(images, key = { it.uri }) { file ->
             val isVideo = file.extension in VIDEO_EXTENSIONS
             Box(
                 modifier = Modifier
                     .aspectRatio(1f)
+                    .animateItem()
                     .clickable { openFile(context, file) }
                     .neoBrutalist(backgroundColor = NeoTheme.colors.surface, borderWidth = 2.dp, shadowOffset = 3.dp)
             ) {
@@ -315,12 +320,13 @@ private fun FolderView(
         }
     } else {
         LazyColumn(contentPadding = PaddingValues(bottom = 80.dp)) {
-            items(files) { file ->
+            items(files, key = { it.uri }) { file ->
                 val isDir = file.isDirectory
                 val bgColor = if (isDir) NeoYellow else NeoTheme.colors.surface
 
                 Box(
                     modifier = Modifier
+                        .animateItem()
                         .padding(horizontal = 8.dp, vertical = 8.dp)
                         .fillMaxWidth()
                         .clickable {

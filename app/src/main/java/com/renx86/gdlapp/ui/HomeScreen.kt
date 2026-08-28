@@ -1,5 +1,7 @@
 package com.renx86.gdlapp.ui
 
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -8,6 +10,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -31,10 +34,18 @@ import android.net.Uri
 import androidx.compose.ui.graphics.Color
 import com.renx86.gdlapp.data.DownloadPreferences
 
+import com.renx86.gdlapp.data.db.DownloadHistoryEntity
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+
 @Composable
 fun HomeScreen(
     initialUrl: String = "",
+    activeDownloads: List<DownloadHistoryEntity> = emptyList(),
+    isDownloading: Boolean = false,
     onDownload: (String) -> Unit,
+    onRetry: (String) -> Unit = {},
+    onRemove: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var url by remember { mutableStateOf(initialUrl) }
@@ -57,7 +68,8 @@ fun HomeScreen(
         }
     )
 
-    if (needsSetup) {
+    Crossfade(targetState = needsSetup, animationSpec = tween(200), label = "HomeSetupCrossfade") { setupRequired ->
+        if (setupRequired) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -109,68 +121,110 @@ fun HomeScreen(
                 }
             }
         }
-        return // Block the home screen until folder is picked
-    }
+            return@Crossfade // Block the home screen until folder is picked
+        }
 
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(NeoBackground)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .offset(x = 0.dp, y = 100.dp) // <--- CHANGE THESE VALUES
-                .padding(horizontal = 24.dp), // Keeps it from touching the left/right screen edges
-            horizontalAlignment = Alignment.Start
+        Box(
+            modifier = modifier
+                .fillMaxSize()
+                .background(NeoBackground)
         ) {
-            Text(
-                "GDL",
-                style = MaterialTheme.typography.displayMedium.copy(
-                    fontWeight = FontWeight.Black,
-                    fontSize = 48.sp,
-                    color = NeoBorder
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .offset(x = 0.dp, y = 100.dp) // <--- CHANGE THESE VALUES
+                    .padding(horizontal = 24.dp), // Keeps it from touching the left/right screen edges
+                horizontalAlignment = Alignment.Start
+            ) {
+                Text(
+                    "GDL",
+                    style = MaterialTheme.typography.displayMedium.copy(
+                        fontWeight = FontWeight.Black,
+                        fontSize = 48.sp,
+                        color = NeoBorder
+                    )
                 )
-            )
-        Text(
-            "ANDROID",
-            style = MaterialTheme.typography.headlineMedium.copy(
-                fontWeight = FontWeight.Black,
-                color = NeoPink
-            )
-        )
+                Text(
+                    "ANDROID",
+                    style = MaterialTheme.typography.headlineMedium.copy(
+                        fontWeight = FontWeight.Black,
+                        color = NeoPink
+                    )
+                )
 
-        Spacer(modifier = Modifier.height(48.dp))
+                Spacer(modifier = Modifier.height(48.dp))
 
-        NeoTextField(
-            value = url,
-            onValueChange = { url = it },
-            placeholder = "Paste Gallery-DL URL...",
-            modifier = Modifier.fillMaxWidth(),
-            trailingIcon = {
-                IconButton(onClick = {
-                    clipboardManager.getText()?.let { url = it.text }
-                }) {
-                    Icon(Icons.Default.ContentPaste, contentDescription = "Paste", tint = NeoBorder)
+                NeoTextField(
+                    value = url,
+                    onValueChange = { url = it },
+                    placeholder = "Paste Gallery-DL URL...",
+                    modifier = Modifier.fillMaxWidth(),
+                    trailingIcon = {
+                        IconButton(onClick = {
+                            clipboardManager.getText()?.let { url = it.text }
+                        }) {
+                            Icon(Icons.Default.ContentPaste, contentDescription = "Paste", tint = NeoBorder)
+                        }
+                    }
+                )
+
+                Spacer(modifier = Modifier.height(32.dp))
+
+                val isUrlValid = url.isNotBlank()
+                val shouldPulse = isUrlValid && !isDownloading
+                val infiniteTransition = rememberInfiniteTransition(label = "DownloadPulse")
+                val pulse by infiniteTransition.animateFloat(
+                    initialValue = 1.0f,
+                    targetValue = if (shouldPulse) 1.02f else 1.0f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(800),
+                        repeatMode = RepeatMode.Reverse
+                    ),
+                    label = "PulseScale"
+                )
+
+                NeoButton(
+                    text = "Download",
+                    onClick = {
+                        if (url.isNotBlank()) {
+                            onDownload(url.trim())
+                            url = ""
+                        }
+                    },
+                    enabled = url.isNotBlank(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .graphicsLayer {
+                            scaleX = pulse
+                            scaleY = pulse
+                        }
+                )
+
+                if (activeDownloads.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(32.dp))
+                    Text(
+                        "ACTIVE DOWNLOADS",
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Black,
+                            color = NeoTextSecondary
+                        )
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    LazyColumn(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        contentPadding = PaddingValues(bottom = 80.dp)
+                    ) {
+                        items(activeDownloads, key = { it.id }) { item ->
+                            Box(modifier = Modifier.animateItem()) {
+                                NeoHistoryCard(item = item, onRetry = onRetry, onRemove = onRemove)
+                            }
+                        }
+                    }
                 }
             }
-        )
-
-        Spacer(modifier = Modifier.height(32.dp))
-
-        NeoButton(
-            text = "Download",
-            onClick = {
-                if (url.isNotBlank()) {
-                    onDownload(url.trim())
-                    url = ""
-                }
-            },
-            enabled = url.isNotBlank(),
-            modifier = Modifier.fillMaxWidth()
-        )
+        }
     }
-}
 }
 
 @Preview(showBackground = true, showSystemUi = true)

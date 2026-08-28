@@ -335,7 +335,12 @@ fun SettingsStorageSection(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        val storageProgress = (totalSizeMB.toFloat() / 1024f).coerceIn(0f, 1f)
+        val storageFraction = (totalSizeMB.toFloat() / 1024f).coerceIn(0f, 1f)
+        val animatedProgress by androidx.compose.animation.core.animateFloatAsState(
+            targetValue = storageFraction,
+            animationSpec = androidx.compose.animation.core.tween(1000),
+            label = "StorageProgress"
+        )
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -350,7 +355,7 @@ fun SettingsStorageSection(
             Box(
                 modifier = Modifier
                     .fillMaxHeight()
-                    .fillMaxWidth(fraction = storageProgress.coerceAtLeast(0.02f))
+                    .fillMaxWidth(fraction = animatedProgress.coerceAtLeast(0.02f))
                     .background(NeoYellow)
             )
         }

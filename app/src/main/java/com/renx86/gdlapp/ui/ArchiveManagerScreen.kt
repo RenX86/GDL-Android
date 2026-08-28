@@ -10,6 +10,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -137,54 +139,62 @@ fun ArchiveManagerScreen(
             Divider(color = NeoBorder, thickness = 2.dp)
         }
 
-        if (isLoading) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("LOADING DATABASE...", fontWeight = FontWeight.Black, color = NeoTextSecondary)
-            }
-        } else if (entries.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("ARCHIVE IS EMPTY", fontWeight = FontWeight.Black, color = NeoTextSecondary)
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(bottom = 80.dp, top = 16.dp, start = 16.dp, end = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                items(filteredEntries, key = { it.entry }) { entry ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .neoBrutalist(backgroundColor = NeoTheme.colors.surface)
-                            .padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+        val state = if (isLoading) 0 else if (entries.isEmpty()) 1 else 2
+        Crossfade(targetState = state, animationSpec = tween(200), label = "ArchiveState") { currentState ->
+            when (currentState) {
+                0 -> {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("LOADING DATABASE...", fontWeight = FontWeight.Black, color = NeoTextSecondary)
+                    }
+                }
+                1 -> {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("ARCHIVE IS EMPTY", fontWeight = FontWeight.Black, color = NeoTextSecondary)
+                    }
+                }
+                2 -> {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(bottom = 80.dp, top = 16.dp, start = 16.dp, end = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = entry.extractor.uppercase(),
-                                fontWeight = FontWeight.Black,
-                                fontSize = 10.sp,
-                                color = NeoTextSecondary
-                            )
-                            Text(
-                                text = entry.id,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 16.sp,
-                                color = NeoBorder
-                            )
-                        }
-                        
-                        IconButton(
-                            onClick = {
-                                deleteArchiveEntry(context, entry.entry)
-                                entries = entries.filter { it.entry != entry.entry }
-                            },
-                            modifier = Modifier
-                                .neoBrutalist(backgroundColor = androidx.compose.ui.graphics.Color.Red, shadowOffset = 2.dp)
-                                .size(40.dp)
-                        ) {
-                            Icon(Icons.Default.Delete, contentDescription = "Delete", tint = androidx.compose.ui.graphics.Color.White)
+                        items(filteredEntries, key = { it.entry }) { entry ->
+                            Row(
+                                modifier = Modifier
+                                    .animateItem()
+                                    .fillMaxWidth()
+                                    .neoBrutalist(backgroundColor = NeoTheme.colors.surface)
+                                    .padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = entry.extractor.uppercase(),
+                                        fontWeight = FontWeight.Black,
+                                        fontSize = 10.sp,
+                                        color = NeoTextSecondary
+                                    )
+                                    Text(
+                                        text = entry.id,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 16.sp,
+                                        color = NeoBorder
+                                    )
+                                }
+                                
+                                IconButton(
+                                    onClick = {
+                                        deleteArchiveEntry(context, entry.entry)
+                                        entries = entries.filter { it.entry != entry.entry }
+                                    },
+                                    modifier = Modifier
+                                        .neoBrutalist(backgroundColor = androidx.compose.ui.graphics.Color.Red, shadowOffset = 2.dp)
+                                        .size(40.dp)
+                                ) {
+                                    Icon(Icons.Default.Delete, contentDescription = "Delete", tint = androidx.compose.ui.graphics.Color.White)
+                                }
+                            }
                         }
                     }
                 }
