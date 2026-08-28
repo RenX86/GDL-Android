@@ -114,7 +114,7 @@ fun NeoTextField(
     var isFocused by remember { mutableStateOf(false) }
     
     val bgColor = if (isFocused) {
-        NeoTheme.colors.yellow.copy(alpha = 0.2f)
+        NeoTheme.colors.yellow
     } else {
         NeoTheme.colors.surface
     }

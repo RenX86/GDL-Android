@@ -57,6 +57,7 @@ import kotlinx.coroutines.launch
 // Type-safe navigation routes
 @Serializable object MainTabsRoute
 @Serializable data class WebViewLoginRoute(val url: String)
+@Serializable object ArchiveManagerRoute
 
 data class BottomNavItem(
     val label: String,
@@ -114,6 +115,12 @@ fun MainApp(sharedUrl: String = "") {
     ) {
         composable<MainTabsRoute> {
             MainTabsScreen(sharedUrl, viewModel, navController)
+        }
+        
+        composable<ArchiveManagerRoute> {
+            com.renx86.gdlapp.ui.ArchiveManagerScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
         }
         
         composable<WebViewLoginRoute> { backStackEntry ->
@@ -221,6 +228,9 @@ fun MainTabsScreen(sharedUrl: String, viewModel: DownloadViewModel, rootNavContr
                 3 -> SettingsScreen(
                     onLoginToSite = { url ->
                         rootNavController.navigate(WebViewLoginRoute(url))
+                    },
+                    onManageArchive = {
+                        rootNavController.navigate(ArchiveManagerRoute)
                     }
                 )
             }

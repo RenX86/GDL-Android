@@ -44,6 +44,17 @@ class GalleryDlBridge @Inject constructor(
         isInitialized = true
 
         applyCookies()
+        applyDeduplication()
+    }
+
+    private fun applyDeduplication() {
+        if (prefs.isDeduplicationEnabled()) {
+            val archiveFile = File(context.filesDir, "archive.sqlite3")
+            module.callAttr("set_archive", archiveFile.absolutePath)
+        } else {
+            // Explicitly clear archive so gallery-dl doesn't retain a stale setting
+            module.callAttr("clear_archive")
+        }
     }
 
     private fun applyCookies() {

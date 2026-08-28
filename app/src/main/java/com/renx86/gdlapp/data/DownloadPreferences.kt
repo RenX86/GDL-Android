@@ -20,6 +20,7 @@ class DownloadPreferences @Inject constructor(
     companion object {
         private const val KEY_DOWNLOAD_PATH = "download_path"
         private const val KEY_HIDDEN_FOLDER = "hidden_folder"
+        private const val KEY_DEDUPLICATION = "deduplication"
 
         fun getDefaultPath(isHidden: Boolean): String {
             return File(
@@ -35,6 +36,14 @@ class DownloadPreferences @Inject constructor(
 
     fun setHiddenFolderEnabled(enabled: Boolean) {
         prefs.edit().putBoolean(KEY_HIDDEN_FOLDER, enabled).apply()
+    }
+
+    fun isDeduplicationEnabled(): Boolean {
+        return prefs.getBoolean(KEY_DEDUPLICATION, true)
+    }
+
+    fun setDeduplicationEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_DEDUPLICATION, enabled).apply()
     }
 
     fun getDownloadPath(): String {

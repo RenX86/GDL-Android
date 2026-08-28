@@ -35,3 +35,6 @@ Thumbs.db
 *.apk
 app/debug/
 app/release/
+*.sqlite3
+gdl_source/
+cache.py

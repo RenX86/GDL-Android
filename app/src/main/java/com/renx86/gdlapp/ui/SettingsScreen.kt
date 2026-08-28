@@ -24,6 +24,7 @@ import java.io.File
 @Composable
 fun SettingsScreen(
     onLoginToSite: (String) -> Unit = {},
+    onManageArchive: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -40,6 +41,8 @@ fun SettingsScreen(
     var autoConvertWebp by remember { mutableStateOf(compPrefs.isAutoConvertEnabled()) }
     var webpQuality by remember { mutableStateOf(compPrefs.getWebpQuality().toFloat()) }
     var keepOriginalFiles by remember { mutableStateOf(compPrefs.isKeepOriginalEnabled()) }
+    
+    var isDeduplicationEnabled by remember { mutableStateOf(prefs.isDeduplicationEnabled()) }
     
     var updateStatus by remember { mutableStateOf<String?>(null) }
     var updateApkUrl by remember { mutableStateOf<String?>(null) }
@@ -66,6 +69,31 @@ fun SettingsScreen(
                 val uriString = uri.toString()
                 prefs.setDownloadPath(uriString)
                 downloadPath = uriString
+            }
+        }
+    )
+
+    val backupLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/octet-stream"),
+        onResult = { uri ->
+            if (uri != null) {
+                val success = com.renx86.gdlapp.util.BackupManager.exportBackup(context, uri)
+                android.widget.Toast.makeText(context, if (success) "Backup Saved!" else "Backup Failed", android.widget.Toast.LENGTH_SHORT).show()
+            }
+        }
+    )
+
+    val restoreLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument(),
+        onResult = { uri ->
+            if (uri != null) {
+                val success = com.renx86.gdlapp.util.BackupManager.importBackup(context, uri)
+                if (success) {
+                    android.widget.Toast.makeText(context, "Settings Restored!", android.widget.Toast.LENGTH_SHORT).show()
+                    (context as? android.app.Activity)?.recreate()
+                } else {
+                    android.widget.Toast.makeText(context, "Restore Failed", android.widget.Toast.LENGTH_SHORT).show()
+                }
             }
         }
     )
@@ -161,7 +189,17 @@ fun SettingsScreen(
         }
 
         item {
-            SettingsHeroCard(versionName = versionName)
+            SettingsHeroCard(
+                versionName = versionName,
+                updateStatus = updateStatus,
+                updateApkUrl = updateApkUrl,
+                isCheckingUpdate = isCheckingUpdate,
+                scope = scope,
+                context = context,
+                onUpdateStatusChanged = { updateStatus = it },
+                onApkUrlFetched = { updateApkUrl = it },
+                onCheckingChanged = { isCheckingUpdate = it }
+            )
         }
 
         item {
@@ -194,6 +232,17 @@ fun SettingsScreen(
                     val uriString = "content://com.android.externalstorage.documents/document/primary%3ADownload%2F$folderName"
                     directoryPickerLauncher.launch(android.net.Uri.parse(uriString))
                 }
+            )
+        }
+
+        item {
+            SettingsDeduplicationSection(
+                isDeduplicationEnabled = isDeduplicationEnabled,
+                onDeduplicationToggled = {
+                    isDeduplicationEnabled = it
+                    prefs.setDeduplicationEnabled(it)
+                },
+                onManageArchive = onManageArchive
             )
         }
 
@@ -234,16 +283,21 @@ fun SettingsScreen(
         }
 
         item {
+            SettingsBackupSection(
+                onBackupClick = {
+                    val dateStr = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
+                    backupLauncher.launch("GDL_Backup_$dateStr.gdl.bkp")
+                },
+                onRestoreClick = {
+                    restoreLauncher.launch(arrayOf("*/*"))
+                }
+            )
+        }
+
+        item {
             SettingsAboutSection(
                 versionName = versionName,
-                updateStatus = updateStatus,
-                updateApkUrl = updateApkUrl,
-                isCheckingUpdate = isCheckingUpdate,
-                scope = scope,
-                context = context,
-                onUpdateStatusChanged = { updateStatus = it },
-                onApkUrlFetched = { updateApkUrl = it },
-                onCheckingChanged = { isCheckingUpdate = it }
+                context = context
             )
         }
     }

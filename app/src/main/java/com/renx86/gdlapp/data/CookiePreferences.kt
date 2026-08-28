@@ -38,6 +38,10 @@ class CookiePreferences @Inject constructor(
         prefs.edit().putStringSet(KEY_LOGGED_SITES, current).apply()
     }
 
+    fun setLoggedSites(sites: Set<String>) {
+        prefs.edit().putStringSet(KEY_LOGGED_SITES, sites).apply()
+    }
+
     fun getUserAgent(): String? = prefs.getString(KEY_COOKIE_USER_AGENT, null)
 
     fun setUserAgent(userAgent: String) {

@@ -14,9 +14,9 @@ Whenever you get a cool idea, just drop it in here so it stays with the code!
 - ~~[ ] **Notification Quick Actions:** Add "Pause", "Resume", and "Cancel" buttons directly inside the Android foreground service download notification.~~
 - ~~[ ] **Media Scanner Trigger:** A button to manually force Android to scan the download folder so new images immediately show up in external gallery apps.~~
 - ~~[ ] **Quick Settings Tile:** Add an Android notification shade drop-down tile to quickly open the app or start a download directly from your clipboard.~~
-- [ ] **Settings Backup & Restore:** Allow users to export their settings and cookies to a file, making it easy to migrate to a new phone.
-- [ ] **WebP Support:** Add Cwebp Module in app to convert images to webp format to save space.
-- [ ] **Smart Duplicate Detection:** Use lightweight perceptual hashing (pHash) to detect if you've already downloaded an identical image to save storage and keep the gallery clean.
+- [x] **Settings Backup & Restore:** Allow users to export their settings and cookies to a file, making it easy to migrate to a new phone.
+- [x] **WebP Support:** Add Cwebp Module in app to convert images to webp format to save space.
+- [x] **Smart Duplicate Detection:** Use lightweight perceptual hashing (pHash) to detect if you've already downloaded an identical image to save storage and keep the gallery clean.
 
 ## 🤖 Automations Ideas (Future)
 - [ ] **Scheduled Downloads / Subscriptions:**

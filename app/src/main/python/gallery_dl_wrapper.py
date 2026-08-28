@@ -34,6 +34,14 @@ def set_user_agent(user_agent: str):
     if user_agent:
         config.set(("downloader",), "http", {"headers": {"User-Agent": user_agent}})
 
+def set_archive(archive_file_path: str):
+    """Tell gallery-dl to track downloads in a sqlite3 archive to prevent duplicates."""
+    config.set(("extractor",), "archive", archive_file_path)
+
+def clear_archive():
+    """Remove the archive setting so gallery-dl won't deduplicate."""
+    config.set(("extractor",), "archive", None)
+
 def get_info(url: str) -> str:
     if not _initialized:
         raise RuntimeError("Call initialize() first")
