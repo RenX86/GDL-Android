@@ -286,7 +286,9 @@ fun SettingsStorageSection(
     downloadPath: String,
     totalFiles: Int,
     totalSizeMB: Long,
-    directoryPickerLauncher: ManagedActivityResultLauncher<Uri?, Uri?>,
+    isCalculating: Boolean = false,
+    onCalculateRequest: () -> Unit = {},
+    directoryPickerLauncher: androidx.activity.result.ActivityResultLauncher<android.net.Uri?>,
     isHiddenEnabled: Boolean,
     onHiddenToggled: (Boolean) -> Unit
 ) {
@@ -321,43 +323,67 @@ fun SettingsStorageSection(
 
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Column {
                 Text("FILES", fontWeight = FontWeight.Bold, fontSize = 11.sp, color = NeoTextSecondary)
-                Text("$totalFiles", fontWeight = FontWeight.Black, fontSize = 24.sp, color = NeoBorder)
+                if (isCalculating) {
+                    CircularProgressIndicator(modifier = Modifier.size(24.dp).padding(top = 4.dp), color = NeoBorder, strokeWidth = 3.dp)
+                } else if (totalFiles == 0 && totalSizeMB == 0L) {
+                    Text("---", fontWeight = FontWeight.Black, fontSize = 24.sp, color = NeoBorder)
+                } else {
+                    Text("$totalFiles", fontWeight = FontWeight.Black, fontSize = 24.sp, color = NeoBorder)
+                }
             }
             Column(horizontalAlignment = Alignment.End) {
                 Text("SIZE", fontWeight = FontWeight.Bold, fontSize = 11.sp, color = NeoTextSecondary)
-                Text("$totalSizeMB MB", fontWeight = FontWeight.Black, fontSize = 24.sp, color = NeoBorder)
+                if (isCalculating) {
+                    CircularProgressIndicator(modifier = Modifier.size(24.dp).padding(top = 4.dp), color = NeoBorder, strokeWidth = 3.dp)
+                } else if (totalFiles == 0 && totalSizeMB == 0L) {
+                    Text("---", fontWeight = FontWeight.Black, fontSize = 24.sp, color = NeoBorder)
+                } else {
+                    Text("$totalSizeMB MB", fontWeight = FontWeight.Black, fontSize = 24.sp, color = NeoBorder)
+                }
             }
         }
+        
+        if (totalFiles == 0 && totalSizeMB == 0L && !isCalculating) {
+            Spacer(modifier = Modifier.height(8.dp))
+            NeoButton(
+                text = "Calculate Usage",
+                onClick = onCalculateRequest,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        if (totalSizeMB > 0) {
+            Spacer(modifier = Modifier.height(8.dp))
 
-        val storageFraction = (totalSizeMB.toFloat() / 1024f).coerceIn(0f, 1f)
-        val animatedProgress by androidx.compose.animation.core.animateFloatAsState(
-            targetValue = storageFraction,
-            animationSpec = androidx.compose.animation.core.tween(1000),
-            label = "StorageProgress"
-        )
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(20.dp)
-                .border(3.dp, NeoBorder)
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(NeoTheme.colors.surface)
+            val storageFraction = (totalSizeMB.toFloat() / 1024f).coerceIn(0f, 1f)
+            val animatedProgress by androidx.compose.animation.core.animateFloatAsState(
+                targetValue = storageFraction,
+                animationSpec = androidx.compose.animation.core.tween(1000),
+                label = "StorageProgress"
             )
             Box(
                 modifier = Modifier
-                    .fillMaxHeight()
-                    .fillMaxWidth(fraction = animatedProgress.coerceAtLeast(0.02f))
-                    .background(NeoYellow)
-            )
+                    .fillMaxWidth()
+                    .height(20.dp)
+                    .border(3.dp, NeoBorder)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(NeoTheme.colors.surface)
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .fillMaxWidth(fraction = animatedProgress.coerceAtLeast(0.02f))
+                        .background(NeoYellow)
+                )
+            }
         }
 
         Spacer(modifier = Modifier.height(16.dp))

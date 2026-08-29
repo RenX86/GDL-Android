@@ -9,7 +9,7 @@ Whenever you get a cool idea, just drop it in here so it stays with the code!
 - [x] **Download History:** A visual history log showing past downloads, separate from the active queue.
 - ~~[ ] **Scheduled Downloads:** Allow users to queue up downloads that only trigger when on Wi-Fi or charging.~~
 - ~~[ ] **Bulk Import:** A way to paste a massive list of URLs and have the app queue them all up automatically.~~
-- [ ] **Advanced gallery-dl Config:** A dedicated text field in settings for power users to pass raw, custom command-line arguments (e.g., `--write-metadata`, `--range`, `--chapter-filter`).
+- ~~[ ] **Advanced gallery-dl Config:** A dedicated text field in settings for power users to pass raw, custom command-line arguments (e.g., `--write-metadata`, `--range`, `--chapter-filter`).~~
 - ~~[ ] **In-App Fullscreen Gallery:** Upgrade the current gallery grid so tapping an image opens a beautiful fullscreen viewer with pinch-to-zoom and swipe gestures.~~
 - ~~[ ] **Notification Quick Actions:** Add "Pause", "Resume", and "Cancel" buttons directly inside the Android foreground service download notification.~~
 - ~~[ ] **Media Scanner Trigger:** A button to manually force Android to scan the download folder so new images immediately show up in external gallery apps.~~

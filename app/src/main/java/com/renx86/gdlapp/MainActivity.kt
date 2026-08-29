@@ -144,7 +144,6 @@ fun MainApp(sharedUrl: String = "") {
 
 @Composable
 fun MainTabsScreen(sharedUrl: String, viewModel: DownloadViewModel, rootNavController: androidx.navigation.NavHostController) {
-    val downloads by viewModel.downloads.collectAsState()
     val pagerState = rememberPagerState(pageCount = { 4 })
     val coroutineScope = rememberCoroutineScope()
 
@@ -231,21 +230,25 @@ fun MainTabsScreen(sharedUrl: String, viewModel: DownloadViewModel, rootNavContr
                 .fillMaxSize()
         ) { page ->
             when (page) {
-                0 -> HomeScreen(
-                    initialUrl = sharedUrl,
-                    activeDownloads = downloads.filter { it.status == "DOWNLOADING" || it.status == "QUEUED" },
-                    onDownload = { url ->
-                        viewModel.enqueue(url)
-                    },
-                    onRetry = { viewModel.retry(it) },
-                    onRemove = { viewModel.removeItem(it) }
-                )
-                1 -> HistoryScreen(
-                    downloads = downloads,
-                    onRetry = { viewModel.retry(it) },
-                    onRemove = { viewModel.removeItem(it) },
-                    onClearAll = { viewModel.clearAllHistory() }
-                )
+                0 -> {
+                    val downloads by viewModel.downloads.collectAsState()
+                    HomeScreen(
+                        initialUrl = sharedUrl,
+                        activeDownloads = downloads.filter { it.status == "DOWNLOADING" || it.status == "QUEUED" },
+                        onDownload = { url -> viewModel.enqueue(url) },
+                        onRetry = { viewModel.retry(it) },
+                        onRemove = { viewModel.removeItem(it) }
+                    )
+                }
+                1 -> {
+                    val downloads by viewModel.downloads.collectAsState()
+                    HistoryScreen(
+                        downloads = downloads,
+                        onRetry = { viewModel.retry(it) },
+                        onRemove = { viewModel.removeItem(it) },
+                        onClearAll = { viewModel.clearAllHistory() }
+                    )
+                }
                 2 -> FileBrowserScreen()
                 3 -> SettingsScreen(
                     onLoginToSite = { url ->

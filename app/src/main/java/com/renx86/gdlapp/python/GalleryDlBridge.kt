@@ -9,6 +9,8 @@ import com.renx86.gdlapp.data.CompressionPreferences
 import com.renx86.gdlapp.util.WebPConverter
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.File
@@ -23,6 +25,7 @@ class GalleryDlBridge @Inject constructor(
     private val compressionPrefs: CompressionPreferences
 ) {
     private var currentDownloadDir: String = ""
+    private val bridgeMutex = Mutex() // Added to synchronize Python access
 
     private val module by lazy {
         if (!Python.isStarted()) {
@@ -70,52 +73,56 @@ class GalleryDlBridge @Inject constructor(
     }
 
     suspend fun getInfo(url: String): JSONObject = withContext(Dispatchers.IO) {
-        val dummyCache = File(context.cacheDir, "gdl_dummy")
-        dummyCache.mkdirs()
-        ensureInitialized(dummyCache.absolutePath)
-        
-        val result = module.callAttr("get_info", url).toString()
-        JSONObject(result)
+        bridgeMutex.withLock {
+            val dummyCache = File(context.cacheDir, "gdl_dummy")
+            dummyCache.mkdirs()
+            ensureInitialized(dummyCache.absolutePath)
+            
+            val result = module.callAttr("get_info", url).toString()
+            JSONObject(result)
+        }
     }
 
     suspend fun download(url: String, downloadId: String): JSONObject = withContext(Dispatchers.IO) {
-        // STEP 1: Create a temporary cache directory for Python
-        val tempCacheDir = File(context.cacheDir, "gdl_temp_$downloadId")
-        tempCacheDir.mkdirs()
+        bridgeMutex.withLock {
+            // STEP 1: Create a temporary cache directory for Python
+            val tempCacheDir = File(context.cacheDir, "gdl_temp_$downloadId")
+            tempCacheDir.mkdirs()
 
-        ensureInitialized(tempCacheDir.absolutePath)
+            ensureInitialized(tempCacheDir.absolutePath)
 
-        // Run the python download!
-        val result = module.callAttr("download", url).toString()
-        val jsonResult = JSONObject(result)
+            // Run the python download!
+            val result = module.callAttr("download", url).toString()
+            val jsonResult = JSONObject(result)
 
-        if (jsonResult.optString("status") == "ok") {
-            // STEP 2: Optional WebP Auto-Conversion
-            if (compressionPrefs.isAutoConvertEnabled()) {
-                val quality = compressionPrefs.getWebpQuality()
-                val keepOriginal = compressionPrefs.isKeepOriginalEnabled()
-                tempCacheDir.walkTopDown().filter { it.isFile }.forEach { file ->
-                    WebPConverter.convertFileToWebp(file, quality, keepOriginal)
+            if (jsonResult.optString("status") == "ok") {
+                // STEP 2: Optional WebP Auto-Conversion
+                if (compressionPrefs.isAutoConvertEnabled()) {
+                    val quality = compressionPrefs.getWebpQuality()
+                    val keepOriginal = compressionPrefs.isKeepOriginalEnabled()
+                    tempCacheDir.walkTopDown().filter { it.isFile }.forEach { file ->
+                        WebPConverter.convertFileToWebp(file, quality, keepOriginal)
+                    }
                 }
-            }
-            
-            // STEP 3: Move from App Storage to User Chosen Directory (SAF)
-            try {
-                copyCacheToSafDestination(tempCacheDir)
-            } catch (e: Exception) {
-                return@withContext JSONObject().apply {
-                    put("status", "error")
-                    put("message", "Failed to move files to SAF destination: ${e.message}")
+                
+                // STEP 3: Move from App Storage to User Chosen Directory (SAF)
+                try {
+                    copyCacheToSafDestination(tempCacheDir)
+                } catch (e: Exception) {
+                    return@withLock JSONObject().apply {
+                        put("status", "error")
+                        put("message", "Failed to move files to SAF destination: ${e.message}")
+                    }
+                } finally {
+                    // STEP 4: Cleanup
+                    tempCacheDir.deleteRecursively()
                 }
-            } finally {
-                // STEP 4: Cleanup
+            } else {
                 tempCacheDir.deleteRecursively()
             }
-        } else {
-            tempCacheDir.deleteRecursively()
-        }
 
-        jsonResult
+            jsonResult
+        }
     }
 
     private fun copyCacheToSafDestination(tempCacheDir: File) {

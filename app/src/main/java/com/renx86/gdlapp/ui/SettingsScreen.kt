@@ -106,8 +106,9 @@ fun SettingsScreen(
     var isCalculatingStats by remember { mutableStateOf(false) }
 
     // Calculate stats async
-    LaunchedEffect(downloadPath) {
-        isCalculatingStats = true
+    LaunchedEffect(downloadPath, isCalculatingStats) {
+        if (!isCalculatingStats) return@LaunchedEffect
+        
         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
             try {
                 if (downloadPath.startsWith("content://")) {
@@ -216,6 +217,8 @@ fun SettingsScreen(
                 downloadPath = displayPath,
                 totalFiles = totalFiles,
                 totalSizeMB = totalSizeMB,
+                isCalculating = isCalculatingStats,
+                onCalculateRequest = { isCalculatingStats = true },
                 directoryPickerLauncher = directoryPickerLauncher,
                 isHiddenEnabled = isHiddenFolderEnabled,
                 onHiddenToggled = { enabled ->
