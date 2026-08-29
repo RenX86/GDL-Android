@@ -11,7 +11,7 @@
 <div align="center">
   <img src="docs/images/Home.png" width="19%" />
   <img src="docs/images/History.png" width="19%" />
-  <img src="docs/images/Files1.png" width="19%" />
+  <img src="docs/images/Files.png" width="19%" />
   <img src="docs/images/Files2.png" width="19%" />
   <img src="docs/images/Settings.png" width="19%" />
 </div>
