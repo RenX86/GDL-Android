@@ -4,4 +4,6 @@
     <external-files-path name="downloads" path="Download/" />
     <!-- Public storage so FileProvider can open files from /Download/GDL/ etc -->
     <external-path name="external" path="." />
+    <!-- Cache storage for app updates -->
+    <cache-path name="updates" path="updates/" />
 </paths>

@@ -15,6 +15,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Box
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Folder
@@ -98,16 +99,46 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             GDLAndroidTheme {
-                MainApp(sharedUrl = sharedUrl)
+                MainApp(sharedUrl = sharedUrl, initialIntent = intent)
             }
         }
     }
 }
 
 @Composable
-fun MainApp(sharedUrl: String = "") {
+fun MainApp(sharedUrl: String = "", initialIntent: Intent? = null) {
     val navController = rememberNavController()
     val viewModel: DownloadViewModel = hiltViewModel()
+    val updateViewModel: com.renx86.gdlapp.viewmodel.UpdateViewModel = hiltViewModel()
+    
+    val showUpdateSheet by updateViewModel.showSheet.collectAsState()
+    
+    // Check for intents delivered while the app is active
+    val context = LocalContext.current
+    DisposableEffect(context) {
+        val listener = androidx.core.util.Consumer<Intent> { newIntent ->
+            if (newIntent.getBooleanExtra("EXTRA_OPEN_UPDATE", false)) {
+                updateViewModel.openSheet()
+            }
+        }
+        (context as ComponentActivity).addOnNewIntentListener(listener)
+        onDispose {
+            context.removeOnNewIntentListener(listener)
+        }
+    }
+    
+    // Handle the initial intent and launch check
+    LaunchedEffect(Unit) {
+        if (initialIntent?.getBooleanExtra("EXTRA_OPEN_UPDATE", false) == true) {
+            updateViewModel.openSheet()
+        } else {
+            updateViewModel.checkOnLaunch()
+        }
+    }
+    
+    if (showUpdateSheet) {
+        UpdateSheet(viewModel = updateViewModel, onDismiss = { updateViewModel.closeSheet() })
+    }
 
     NavHost(
         navController = navController,
@@ -118,7 +149,7 @@ fun MainApp(sharedUrl: String = "") {
         popExitTransition = { androidx.compose.animation.slideOutHorizontally(androidx.compose.animation.core.tween(250)) { it } }
     ) {
         composable<MainTabsRoute> {
-            MainTabsScreen(sharedUrl, viewModel, navController)
+            MainTabsScreen(sharedUrl, viewModel, updateViewModel, navController)
         }
         
         composable<ArchiveManagerRoute> {
@@ -143,7 +174,7 @@ fun MainApp(sharedUrl: String = "") {
 }
 
 @Composable
-fun MainTabsScreen(sharedUrl: String, viewModel: DownloadViewModel, rootNavController: androidx.navigation.NavHostController) {
+fun MainTabsScreen(sharedUrl: String, viewModel: DownloadViewModel, updateViewModel: com.renx86.gdlapp.viewmodel.UpdateViewModel, rootNavController: androidx.navigation.NavHostController) {
     val pagerState = rememberPagerState(pageCount = { 4 })
     val coroutineScope = rememberCoroutineScope()
 
@@ -158,14 +189,14 @@ fun MainTabsScreen(sharedUrl: String, viewModel: DownloadViewModel, rootNavContr
         modifier = Modifier.fillMaxSize(),
         containerColor = NeoBackground,
         bottomBar = {
-            BoxWithConstraints(
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .navigationBarsPadding()
                     .background(NeoBackground)
                     .border(width = 3.dp, color = NeoBorder)
             ) {
-                val tabWidth = maxWidth / navItems.size
+                val tabWidth = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp.dp / navItems.size
                 val indicatorOffset by androidx.compose.animation.core.animateDpAsState(
                     targetValue = tabWidth * pagerState.currentPage,
                     animationSpec = androidx.compose.animation.core.spring(dampingRatio = 0.6f, stiffness = 500f),
@@ -237,7 +268,7 @@ fun MainTabsScreen(sharedUrl: String, viewModel: DownloadViewModel, rootNavContr
                         activeDownloads = downloads.filter { it.status == "DOWNLOADING" || it.status == "QUEUED" },
                         onDownload = { url -> viewModel.enqueue(url) },
                         onRetry = { viewModel.retry(it) },
-                        onRemove = { viewModel.removeItem(it) }
+                        onRemove = { viewModel.removeItem(it) }, updateViewModel = updateViewModel
                     )
                 }
                 1 -> {
@@ -250,7 +281,7 @@ fun MainTabsScreen(sharedUrl: String, viewModel: DownloadViewModel, rootNavContr
                     )
                 }
                 2 -> FileBrowserScreen()
-                3 -> SettingsScreen(
+                3 -> SettingsScreen(updateViewModel = updateViewModel,
                     onLoginToSite = { url ->
                         rootNavController.navigate(WebViewLoginRoute(url))
                     },

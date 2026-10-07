@@ -3,17 +3,18 @@ package com.renx86.gdlapp.ui
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material3.*
+import androidx.compose.material.icons.filled.Update
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.renx86.gdlapp.ui.theme.NeoBackground
@@ -24,6 +25,7 @@ import com.renx86.gdlapp.ui.theme.NeoTextSecondary
 import com.renx86.gdlapp.ui.theme.NeoTextField
 import com.renx86.gdlapp.ui.theme.NeoTheme
 import com.renx86.gdlapp.ui.theme.NeoYellow
+import com.renx86.gdlapp.ui.theme.neoBrutalist
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.platform.LocalContext
@@ -31,7 +33,6 @@ import androidx.compose.foundation.border
 import android.os.Environment
 import java.io.File
 import android.net.Uri
-import androidx.compose.ui.graphics.Color
 import com.renx86.gdlapp.data.DownloadPreferences
 
 import com.renx86.gdlapp.data.db.DownloadHistoryEntity
@@ -39,7 +40,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 
 @Composable
-fun HomeScreen(
+fun HomeScreen(updateViewModel: com.renx86.gdlapp.viewmodel.UpdateViewModel,
     initialUrl: String = "",
     activeDownloads: List<DownloadHistoryEntity> = emptyList(),
     isDownloading: Boolean = false,
@@ -124,20 +125,43 @@ fun HomeScreen(
             return@Crossfade // Block the home screen until folder is picked
         }
 
-        Box(
-            modifier = modifier
-                .fillMaxSize()
-                .background(NeoBackground)
-        ) {
-            Column(
+        Column(modifier = modifier.fillMaxSize().background(NeoBackground)) {
+            val updateState by updateViewModel.state.collectAsState()
+            if (updateState is com.renx86.gdlapp.viewmodel.UpdateState.Available) {
+                val info = (updateState as com.renx86.gdlapp.viewmodel.UpdateState.Available).info
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                        .neoBrutalist(backgroundColor = NeoYellow, shadowOffset = 4.dp)
+                        .clickable { updateViewModel.openSheet() }
+                        .padding(16.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Update, contentDescription = null, tint = NeoBorder, modifier = Modifier.size(32.dp))
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Column {
+                            Text("UPDATE AVAILABLE", fontWeight = FontWeight.Black, color = NeoBorder)
+                            Text("${info.version}", fontWeight = FontWeight.Bold, color = NeoTextSecondary, fontSize = 12.sp)
+                        }
+                    }
+                }
+            }
+            
+            Box(
                 modifier = Modifier
+                    .weight(1f)
                     .fillMaxWidth()
-                    .offset(x = 0.dp, y = 100.dp) // <--- CHANGE THESE VALUES
-                    .padding(horizontal = 24.dp), // Keeps it from touching the left/right screen edges
-                horizontalAlignment = Alignment.Start
             ) {
-                Text(
-                    "GDL",
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .offset(x = 0.dp, y = if (updateState is com.renx86.gdlapp.viewmodel.UpdateState.Available) 20.dp else 100.dp)
+                        .padding(horizontal = 24.dp), // Keeps it from touching the left/right screen edges
+                    horizontalAlignment = Alignment.Start
+                ) {
+                    Text(
+                        "GDL",
                     style = MaterialTheme.typography.displayMedium.copy(
                         fontWeight = FontWeight.Black,
                         fontSize = 48.sp,
@@ -222,19 +246,8 @@ fun HomeScreen(
                         }
                     }
                 }
+                }
             }
         }
-    }
-}
-
-@Preview(showBackground = true, showSystemUi = true)
-@Composable
-fun HomeScreenPreview() {
-    MaterialTheme {
-        HomeScreen(
-            initialUrl = "https://example.com/gallery",
-            onDownload = {},
-            modifier = Modifier.fillMaxSize()
-        )
     }
 }

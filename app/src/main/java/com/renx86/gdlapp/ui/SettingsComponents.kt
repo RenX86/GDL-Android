@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.SdStorage
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -52,15 +53,10 @@ val NeoPurple = Color(0xFFD8B4FE)
 @Composable
 fun SettingsHeroCard(
     versionName: String,
-    updateStatus: String?,
-    updateApkUrl: String?,
-    isCheckingUpdate: Boolean,
-    scope: CoroutineScope,
-    context: Context,
-    onUpdateStatusChanged: (String?) -> Unit,
-    onApkUrlFetched: (String?) -> Unit,
-    onCheckingChanged: (Boolean) -> Unit
+    updateViewModel: com.renx86.gdlapp.viewmodel.UpdateViewModel
 ) {
+    val updateState by updateViewModel.state.collectAsState()
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -106,129 +102,48 @@ fun SettingsHeroCard(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            if (updateStatus != null) {
+            val statusText = when (updateState) {
+                is com.renx86.gdlapp.viewmodel.UpdateState.Checking -> "Checking..."
+                is com.renx86.gdlapp.viewmodel.UpdateState.UpToDate -> "You are on the latest version!"
+                is com.renx86.gdlapp.viewmodel.UpdateState.Available -> "Update available: ${(updateState as com.renx86.gdlapp.viewmodel.UpdateState.Available).info.version}!"
+                is com.renx86.gdlapp.viewmodel.UpdateState.Downloading -> "Downloading update..."
+                is com.renx86.gdlapp.viewmodel.UpdateState.ReadyToInstall -> "Update ready to install!"
+                is com.renx86.gdlapp.viewmodel.UpdateState.Error -> (updateState as com.renx86.gdlapp.viewmodel.UpdateState.Error).message
+                else -> null
+            }
+
+            if (statusText != null) {
                 Text(
-                    text = updateStatus,
+                    text = statusText,
                     fontWeight = FontWeight.Bold,
                     fontSize = 12.sp,
-                    color = if (updateStatus.contains("available")) NeoGreen else NeoBorder,
+                    color = if (updateState is com.renx86.gdlapp.viewmodel.UpdateState.Available || updateState is com.renx86.gdlapp.viewmodel.UpdateState.ReadyToInstall) NeoGreen else NeoBorder,
                     modifier = Modifier.fillMaxWidth(),
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center
                 )
                 Spacer(modifier = Modifier.height(8.dp))
             }
 
+            val buttonText = when (updateState) {
+                is com.renx86.gdlapp.viewmodel.UpdateState.Checking -> "Checking..."
+                is com.renx86.gdlapp.viewmodel.UpdateState.Available -> "View Update"
+                is com.renx86.gdlapp.viewmodel.UpdateState.Downloading -> "Downloading..."
+                is com.renx86.gdlapp.viewmodel.UpdateState.ReadyToInstall -> "Install Update"
+                else -> "Check for Updates"
+            }
+
             NeoButton(
-                text = if (isCheckingUpdate) "Checking..." else if (updateStatus?.contains("available") == true) "Download Update" else "Check for Updates",
+                text = buttonText,
                 onClick = {
-                    if (isCheckingUpdate) return@NeoButton
-                    
-                    if (updateStatus?.contains("available") == true) {
-                        if (updateApkUrl != null) {
-                            try {
-                                val request = android.app.DownloadManager.Request(android.net.Uri.parse(updateApkUrl))
-                                    .setTitle("GDL Android Update")
-                                    .setDescription("Downloading update...")
-                                    .setNotificationVisibility(android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                                    .setDestinationInExternalPublicDir(android.os.Environment.DIRECTORY_DOWNLOADS, "GDLAndroid-update.apk")
-                                    .setMimeType("application/vnd.android.package-archive")
-
-                                val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as android.app.DownloadManager
-                                val downloadId = downloadManager.enqueue(request)
-                                android.widget.Toast.makeText(context, "Downloading update...", android.widget.Toast.LENGTH_SHORT).show()
-                                
-                                // Listen for completion and launch install dialog
-                                val receiver = object : android.content.BroadcastReceiver() {
-                                    override fun onReceive(ctx: Context, intent: android.content.Intent) {
-                                        val id = intent.getLongExtra(android.app.DownloadManager.EXTRA_DOWNLOAD_ID, -1)
-                                        if (id == downloadId) {
-                                            try {
-                                                ctx.unregisterReceiver(this)
-                                            } catch (e: Exception) {}
-                                            
-                                            try {
-                                                val uri = downloadManager.getUriForDownloadedFile(downloadId)
-                                                val installIntent = android.content.Intent(android.content.Intent.ACTION_VIEW)
-                                                installIntent.setDataAndType(uri, "application/vnd.android.package-archive")
-                                                installIntent.flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
-                                                ctx.startActivity(installIntent)
-                                            } catch (e: Exception) {
-                                                e.printStackTrace()
-                                            }
-                                        }
-                                    }
-                                }
-                                
-                                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-                                    context.registerReceiver(receiver, android.content.IntentFilter(android.app.DownloadManager.ACTION_DOWNLOAD_COMPLETE), Context.RECEIVER_EXPORTED)
-                                } else {
-                                    context.registerReceiver(receiver, android.content.IntentFilter(android.app.DownloadManager.ACTION_DOWNLOAD_COMPLETE))
-                                }
-
-                            } catch (e: Exception) {
-                                val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://github.com/RenX86/GDL-Android/releases/latest"))
-                                context.startActivity(intent)
-                            }
-                        } else {
-                            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://github.com/RenX86/GDL-Android/releases/latest"))
-                            context.startActivity(intent)
-                        }
-                        return@NeoButton
-                    }
-                    
-                    onCheckingChanged(true)
-                    onUpdateStatusChanged("Checking...")
-                    
-                    scope.launch(Dispatchers.IO) {
-                        try {
-                            val url = java.net.URL("https://api.github.com/repos/RenX86/GDL-Android/releases/latest")
-                            val connection = url.openConnection() as java.net.HttpURLConnection
-                            connection.requestMethod = "GET"
-                            connection.setRequestProperty("Accept", "application/vnd.github.v3+json")
-                            
-                            if (connection.responseCode == java.net.HttpURLConnection.HTTP_OK) {
-                                val response = connection.inputStream.bufferedReader().readText()
-                                val json = org.json.JSONObject(response)
-                                val latestVersion = json.getString("tag_name").removePrefix("v")
-                                val currentVersion = versionName.removePrefix("v")
-                                
-                                var apkUrl: String? = null
-                                val assets = json.optJSONArray("assets")
-                                if (assets != null) {
-                                    for (i in 0 until assets.length()) {
-                                        val asset = assets.getJSONObject(i)
-                                        val name = asset.getString("name")
-                                        if (name.endsWith(".apk")) {
-                                            apkUrl = asset.getString("browser_download_url")
-                                            break
-                                        }
-                                    }
-                                }
-                                
-                                withContext(Dispatchers.Main) {
-                                    if (latestVersion == currentVersion) {
-                                        onUpdateStatusChanged("You are on the latest version!")
-                                    } else {
-                                        onUpdateStatusChanged("Update available: v$latestVersion!")
-                                        onApkUrlFetched(apkUrl)
-                                    }
-                                    onCheckingChanged(false)
-                                }
-                            } else {
-                                withContext(Dispatchers.Main) {
-                                    onUpdateStatusChanged("Failed to check (Error ${connection.responseCode})")
-                                    onCheckingChanged(false)
-                                }
-                            }
-                        } catch (e: Exception) {
-                            withContext(Dispatchers.Main) {
-                                onUpdateStatusChanged("Error checking for updates.")
-                                onCheckingChanged(false)
-                            }
-                        }
+                    if (updateState is com.renx86.gdlapp.viewmodel.UpdateState.Available || 
+                        updateState is com.renx86.gdlapp.viewmodel.UpdateState.ReadyToInstall ||
+                        updateState is com.renx86.gdlapp.viewmodel.UpdateState.Downloading) {
+                        updateViewModel.openSheet()
+                    } else if (updateState !is com.renx86.gdlapp.viewmodel.UpdateState.Checking) {
+                        updateViewModel.checkNow()
                     }
                 },
-                color = if (updateStatus?.contains("available") == true) NeoGreen else NeoYellow,
+                color = if (updateState is com.renx86.gdlapp.viewmodel.UpdateState.Available || updateState is com.renx86.gdlapp.viewmodel.UpdateState.ReadyToInstall) NeoGreen else NeoYellow,
                 modifier = Modifier.fillMaxWidth()
             )
         }

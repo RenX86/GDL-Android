@@ -23,6 +23,7 @@ import java.io.File
 
 @Composable
 fun SettingsScreen(
+    updateViewModel: com.renx86.gdlapp.viewmodel.UpdateViewModel,
     onLoginToSite: (String) -> Unit = {},
     onManageArchive: () -> Unit = {},
     modifier: Modifier = Modifier
@@ -43,10 +44,6 @@ fun SettingsScreen(
     var keepOriginalFiles by remember { mutableStateOf(compPrefs.isKeepOriginalEnabled()) }
     
     var isDeduplicationEnabled by remember { mutableStateOf(prefs.isDeduplicationEnabled()) }
-    
-    var updateStatus by remember { mutableStateOf<String?>(null) }
-    var updateApkUrl by remember { mutableStateOf<String?>(null) }
-    var isCheckingUpdate by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
     val versionName = remember {
@@ -192,14 +189,7 @@ fun SettingsScreen(
         item {
             SettingsHeroCard(
                 versionName = versionName,
-                updateStatus = updateStatus,
-                updateApkUrl = updateApkUrl,
-                isCheckingUpdate = isCheckingUpdate,
-                scope = scope,
-                context = context,
-                onUpdateStatusChanged = { updateStatus = it },
-                onApkUrlFetched = { updateApkUrl = it },
-                onCheckingChanged = { isCheckingUpdate = it }
+                updateViewModel = updateViewModel
             )
         }
 
@@ -303,13 +293,5 @@ fun SettingsScreen(
                 context = context
             )
         }
-    }
-}
-
-@Preview(showBackground = true, showSystemUi = true)
-@Composable
-fun SettingsScreenPreview() {
-    MaterialTheme {
-        SettingsScreen()
     }
 }

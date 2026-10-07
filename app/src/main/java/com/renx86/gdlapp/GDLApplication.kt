@@ -13,6 +13,7 @@ import dagger.hilt.android.HiltAndroidApp
 class GDLApplication : Application(), SingletonImageLoader.Factory {
     companion object {
         const val CHANNEL_ID = "gdl_downloads"
+        const val CHANNEL_UPDATES_ID = "gdl_updates_v2"
     }
 
     override fun newImageLoader(context: PlatformContext): ImageLoader {
@@ -26,7 +27,7 @@ class GDLApplication : Application(), SingletonImageLoader.Factory {
     override fun onCreate() {
         super.onCreate()
 
-        val channel = NotificationChannel(
+        val downloadChannel = NotificationChannel(
             CHANNEL_ID,
             "Downloads",
             NotificationManager.IMPORTANCE_LOW
@@ -34,8 +35,19 @@ class GDLApplication : Application(), SingletonImageLoader.Factory {
             description = "Shows active download progress"
         }
 
+        val updateChannel = NotificationChannel(
+            CHANNEL_UPDATES_ID,
+            "App Updates",
+            NotificationManager.IMPORTANCE_HIGH
+        ).apply {
+            description = "Notifies when a new app version is available"
+        }
+
         val manager = getSystemService(NotificationManager::class.java)
-        manager.createNotificationChannel(channel)
+        // Old channel had default importance (no pop-up); importance can't be changed in place
+        manager.deleteNotificationChannel("gdl_updates")
+        manager.createNotificationChannel(downloadChannel)
+        manager.createNotificationChannel(updateChannel)
     }
 }
 
