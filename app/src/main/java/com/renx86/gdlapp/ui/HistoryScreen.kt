@@ -284,19 +284,11 @@ fun NeoHistoryCard(
                     // Progress bar / Status
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         if (item.status == "DOWNLOADING") {
-                            val infiniteTransition = rememberInfiniteTransition(label = "infinite")
-                            val animatedAlpha by infiniteTransition.animateFloat(
-                                initialValue = 0.6f, targetValue = 1f,
-                                animationSpec = infiniteRepeatable(tween(800), RepeatMode.Reverse),
-                                label = "alpha"
-                            )
-                            LinearProgressIndicator(
+                            AnimatedProgressIndicator(
                                 modifier = Modifier
                                     .weight(1f)
                                     .height(12.dp)
-                                    .border(2.dp, NeoBorder),
-                                color = NeoYellow.copy(alpha = animatedAlpha),
-                                trackColor = NeoTheme.colors.surface
+                                    .border(2.dp, NeoBorder)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                         }
@@ -348,4 +340,19 @@ fun NeoHistoryCard(
             }
         }
     }
+}
+
+@Composable
+fun AnimatedProgressIndicator(modifier: Modifier = Modifier) {
+    val infiniteTransition = rememberInfiniteTransition(label = "infinite")
+    val animatedAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.6f, targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(800), RepeatMode.Reverse),
+        label = "alpha"
+    )
+    LinearProgressIndicator(
+        modifier = modifier,
+        color = NeoYellow.copy(alpha = animatedAlpha),
+        trackColor = NeoTheme.colors.surface
+    )
 }

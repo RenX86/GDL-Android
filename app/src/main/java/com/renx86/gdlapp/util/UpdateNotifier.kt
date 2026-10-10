@@ -38,7 +38,7 @@ object UpdateNotifier {
         val notification = NotificationCompat.Builder(context, GDLApplication.CHANNEL_UPDATES_ID)
             .setSmallIcon(android.R.drawable.stat_sys_download_done)
             .setContentTitle("GDL Update Available")
-            .setContentText("Version ${info.version} is ready to download.")
+            .setContentText("Version ${info.version.removePrefix("v")} is ready to download.")
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)

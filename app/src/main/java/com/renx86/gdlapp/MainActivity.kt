@@ -207,7 +207,7 @@ fun MainTabsScreen(sharedUrl: String, viewModel: DownloadViewModel, updateViewMo
                 Box(modifier = Modifier.matchParentSize()) {
                     Box(
                         modifier = Modifier
-                            .offset(x = indicatorOffset)
+                            .offset { androidx.compose.ui.unit.IntOffset(indicatorOffset.roundToPx(), 0) }
                             .width(tabWidth)
                             .fillMaxHeight()
                             .padding(horizontal = 8.dp, vertical = 6.dp)

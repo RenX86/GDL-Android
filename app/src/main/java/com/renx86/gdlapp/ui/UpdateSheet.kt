@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.*
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -58,15 +59,8 @@ fun UpdateSheet(
         }
     }
 
-    // Auto-launch the installer exactly once when a download becomes ready
-    val readyApkPath = (state as? UpdateState.ReadyToInstall)?.apk?.absolutePath
-    var autoLaunchedFor by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<String?>(null) }
-    LaunchedEffect(readyApkPath) {
-        if (readyApkPath != null && autoLaunchedFor != readyApkPath) {
-            autoLaunchedFor = readyApkPath
-            tryInstall(java.io.File(readyApkPath))
-        }
-    }
+    // Removed auto-launch to prevent infinite popping up when returning from installer.
+    // User must click 'OPEN INSTALLER' manually.
 
     // Only resume the install if we're coming back from the permission settings screen.
     // Returning after cancelling the installer itself must NOT relaunch it.
@@ -99,8 +93,13 @@ fun UpdateSheet(
         ) {
             AnimatedContent(
                 targetState = state,
-                // Animate only when the screen type changes, not on every progress tick
-                contentKey = { it::class },
+                transitionSpec = {
+                    if (initialState::class == targetState::class) {
+                        androidx.compose.animation.EnterTransition.None togetherWith androidx.compose.animation.ExitTransition.None
+                    } else {
+                        androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(300)) togetherWith androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(300))
+                    }
+                },
                 label = "UpdateStateContent",
                 contentAlignment = Alignment.TopCenter
             ) { currentState ->
@@ -133,7 +132,7 @@ fun UpdateSheet(
                                 Spacer(modifier = Modifier.width(16.dp))
                                 Column {
                                     Text("UPDATE AVAILABLE", fontWeight = FontWeight.Black, fontSize = 24.sp, color = NeoBorder)
-                                    Text("v${currentState.info.version} • ${String.format("%.1f", currentState.info.apkSizeBytes / 1024f / 1024f)} MB", fontWeight = FontWeight.Bold, color = NeoTextSecondary)
+                                    Text("v${currentState.info.version.removePrefix("v")} • ${String.format("%.1f", currentState.info.apkSizeBytes / 1024f / 1024f)} MB", fontWeight = FontWeight.Bold, color = NeoTextSecondary)
                                 }
                             }
                             
@@ -176,7 +175,7 @@ fun UpdateSheet(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text("DOWNLOADING UPDATE", fontWeight = FontWeight.Black, fontSize = 20.sp, color = NeoBorder)
-                            Text("${currentState.info.version}", fontWeight = FontWeight.Bold, color = NeoTextSecondary)
+                            Text("v${currentState.info.version.removePrefix("v")}", fontWeight = FontWeight.Bold, color = NeoTextSecondary)
                             
                             Spacer(modifier = Modifier.height(32.dp))
                             

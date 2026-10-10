@@ -61,8 +61,10 @@ fun ArchiveManagerScreen(
         isLoading = false
     }
 
-    val filteredEntries = entries.filter {
-        it.entry.contains(searchQuery, ignoreCase = true)
+    val filteredEntries = remember(entries, searchQuery) {
+        entries.filter {
+            it.entry.contains(searchQuery, ignoreCase = true)
+        }
     }
 
     Column(
