@@ -38,3 +38,4 @@ app/release/
 *.sqlite3
 gdl_source/
 cache.py
+.kotlin/
