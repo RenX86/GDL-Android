@@ -70,8 +70,17 @@ object BackupManager {
                     db.close()
                 } catch (_: Exception) { /* DB might not use WAL, that's fine */ }
                 
-                val bytes = archiveFile.readBytes()
-                val base64 = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
+                val base64 = buildString {
+                    archiveFile.inputStream().use { fis ->
+                        val buffer = ByteArray(3 * 1024)
+                        var bytesRead: Int
+                        while (fis.read(buffer).also { bytesRead = it } != -1) {
+                            append(android.util.Base64.encodeToString(
+                                buffer, 0, bytesRead, android.util.Base64.NO_WRAP
+                            ))
+                        }
+                    }
+                }
                 root.put("archive_sqlite3_base64", base64)
             }
 
@@ -159,12 +168,21 @@ object BackupManager {
             val archiveB64 = root.optString("archive_sqlite3_base64", null)
             if (!archiveB64.isNullOrEmpty()) {
                 try {
-                    val bytes = android.util.Base64.decode(archiveB64, android.util.Base64.NO_WRAP)
                     val archiveFile = java.io.File(context.filesDir, "archive.sqlite3")
                     // Delete stale WAL/SHM journal files to prevent corruption
                     java.io.File(context.filesDir, "archive.sqlite3-wal").delete()
                     java.io.File(context.filesDir, "archive.sqlite3-shm").delete()
-                    archiveFile.writeBytes(bytes)
+
+                    archiveFile.outputStream().use { fos ->
+                        val chunkSize = 4 * 1024
+                        var offset = 0
+                        while (offset < archiveB64.length) {
+                            val end = minOf(offset + chunkSize, archiveB64.length)
+                            val chunk = archiveB64.substring(offset, end)
+                            fos.write(android.util.Base64.decode(chunk, android.util.Base64.NO_WRAP))
+                            offset = end
+                        }
+                    }
                 } catch (e: Exception) {
                     e.printStackTrace()
                 }

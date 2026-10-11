@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.renx86.gdlapp.ui.theme.*
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 
@@ -52,6 +53,7 @@ fun ArchiveManagerScreen(
     onNavigateBack: () -> Unit
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var searchQuery by remember { mutableStateOf("") }
     var entries by remember { mutableStateOf<List<ArchiveEntry>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
@@ -126,12 +128,14 @@ fun ArchiveManagerScreen(
                         color = androidx.compose.ui.graphics.Color.Red,
                         modifier = Modifier.clickable {
                             if (searchQuery.isEmpty()) {
-                                clearAllArchive(context)
                                 entries = emptyList()
+                                scope.launch { clearAllArchive(context) }
                             } else {
-                                // If searched, only clear those
-                                filteredEntries.forEach { deleteArchiveEntry(context, it.entry) }
-                                entries = entries.filterNot { it in filteredEntries }
+                                val toDelete = filteredEntries.map { it.entry }
+                                entries = entries.filterNot { it.entry in toDelete }
+                                scope.launch {
+                                    toDelete.forEach { deleteArchiveEntry(context, it) }
+                                }
                             }
                         }
                     )
@@ -187,8 +191,11 @@ fun ArchiveManagerScreen(
                                 
                                 IconButton(
                                     onClick = {
-                                        deleteArchiveEntry(context, entry.entry)
-                                        entries = entries.filter { it.entry != entry.entry }
+                                        val entryToDelete = entry.entry
+                                        entries = entries.filter { it.entry != entryToDelete }
+                                        scope.launch {
+                                            deleteArchiveEntry(context, entryToDelete)
+                                        }
                                     },
                                     modifier = Modifier
                                         .neoBrutalist(backgroundColor = androidx.compose.ui.graphics.Color.Red, shadowOffset = 2.dp)
@@ -240,9 +247,9 @@ private suspend fun loadArchiveEntries(context: Context): List<ArchiveEntry> = w
 /**
  * Delete a single entry from the archive by its entry key.
  */
-private fun deleteArchiveEntry(context: Context, entry: String) {
+private suspend fun deleteArchiveEntry(context: Context, entry: String) = withContext(Dispatchers.IO) {
     val dbFile = File(context.filesDir, "archive.sqlite3")
-    if (!dbFile.exists()) return
+    if (!dbFile.exists()) return@withContext
     try {
         val db = SQLiteDatabase.openDatabase(dbFile.absolutePath, null, SQLiteDatabase.OPEN_READWRITE)
         db.delete("archive", "entry = ?", arrayOf(entry))
@@ -252,7 +259,7 @@ private fun deleteArchiveEntry(context: Context, entry: String) {
     }
 }
 
-private fun clearAllArchive(context: Context) {
+private suspend fun clearAllArchive(context: Context) = withContext(Dispatchers.IO) {
     val dbFile = File(context.filesDir, "archive.sqlite3")
     if (dbFile.exists()) {
         dbFile.delete()

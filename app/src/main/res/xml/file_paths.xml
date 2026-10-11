@@ -2,8 +2,8 @@
 <paths>
     <!-- App-private downloads (legacy) -->
     <external-files-path name="downloads" path="Download/" />
-    <!-- Public storage so FileProvider can open files from /Download/GDL/ etc -->
-    <external-path name="external" path="." />
+    <!-- Public storage limited to Download directory (supports GDL and .GDL) -->
+    <external-path name="gdl_downloads" path="Download/" />
     <!-- Cache storage for app updates -->
     <cache-path name="updates" path="updates/" />
 </paths>

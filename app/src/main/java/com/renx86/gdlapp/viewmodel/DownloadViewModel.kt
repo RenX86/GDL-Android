@@ -104,7 +104,7 @@ class DownloadViewModel @Inject constructor(
 
     fun clearAllHistory() {
         viewModelScope.launch(Dispatchers.IO) {
-            dao.clearAll()
+            dao.clearCompleted()
         }
     }
 }

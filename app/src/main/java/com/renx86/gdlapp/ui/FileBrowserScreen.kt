@@ -41,6 +41,8 @@ import com.renx86.gdlapp.data.DownloadPreferences
 import com.renx86.gdlapp.ui.theme.*
 import java.io.File
 import androidx.documentfile.provider.DocumentFile
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 enum class ViewStyle {
     LIST,
@@ -110,32 +112,39 @@ fun FileBrowserScreen(modifier: Modifier = Modifier) {
         }
     }
 
-    // Gallery view: ALL images recursively from root
-    val allImages = remember(rootDocumentFile, rootJavaFile) {
-        val result = mutableListOf<FileNode>()
-        if (isSaf && rootDocumentFile != null) {
-            fun walkSaf(docFile: DocumentFile) {
-                docFile.listFiles().forEach {
-                    if (it.name?.startsWith(".") == true) return@forEach
-                    if (it.isDirectory) walkSaf(it)
-                    else {
-                        val ext = it.name?.substringAfterLast('.', "")?.lowercase() ?: ""
-                        if (ext in SUPPORTED_MEDIA_EXTENSIONS) {
-                            result.add(FileNode(it.name ?: "Unknown", false, it.uri, it.lastModified(), documentFile = it))
+    // Gallery view: ALL images recursively from root (loaded asynchronously on IO dispatcher)
+    var allImages by remember { mutableStateOf<List<FileNode>>(emptyList()) }
+    var isLoadingGallery by remember { mutableStateOf(true) }
+
+    LaunchedEffect(rootDocumentFile, rootJavaFile) {
+        isLoadingGallery = true
+        allImages = withContext(Dispatchers.IO) {
+            val result = mutableListOf<FileNode>()
+            if (isSaf && rootDocumentFile != null) {
+                fun walkSaf(docFile: DocumentFile) {
+                    docFile.listFiles().forEach {
+                        if (it.name?.startsWith(".") == true) return@forEach
+                        if (it.isDirectory) walkSaf(it)
+                        else {
+                            val ext = it.name?.substringAfterLast('.', "")?.lowercase() ?: ""
+                            if (ext in SUPPORTED_MEDIA_EXTENSIONS) {
+                                result.add(FileNode(it.name ?: "Unknown", false, it.uri, it.lastModified(), documentFile = it))
+                            }
                         }
                     }
                 }
+                try { walkSaf(rootDocumentFile) } catch (_: Exception) {}
+            } else if (rootJavaFile != null) {
+                try {
+                    rootJavaFile.walkTopDown()
+                        .onEnter { !it.name.startsWith(".") }
+                        .filter { it.isFile && !it.name.startsWith(".") && it.extension.lowercase() in SUPPORTED_MEDIA_EXTENSIONS }
+                        .forEach { result.add(FileNode(it.name, false, android.net.Uri.fromFile(it), it.lastModified(), javaFile = it)) }
+                } catch (_: Exception) {}
             }
-            try { walkSaf(rootDocumentFile!!) } catch (e: Exception) {}
-        } else if (rootJavaFile != null) {
-            try {
-                rootJavaFile!!.walkTopDown()
-                    .onEnter { !it.name.startsWith(".") }
-                    .filter { it.isFile && !it.name.startsWith(".") && it.extension.lowercase() in SUPPORTED_MEDIA_EXTENSIONS }
-                    .forEach { result.add(FileNode(it.name, false, android.net.Uri.fromFile(it), it.lastModified(), javaFile = it)) }
-            } catch (e: Exception) {}
+            result.sortedByDescending { it.lastModified }
         }
-        result.sortedByDescending { it.lastModified }
+        isLoadingGallery = false
     }
 
     Column(
@@ -184,12 +193,18 @@ fun FileBrowserScreen(modifier: Modifier = Modifier) {
         Crossfade(targetState = showGallery, animationSpec = tween(200), label = "GalleryFolderToggle") { isGallery ->
             if (isGallery) {
                 // ---- GALLERY VIEW ----
-                GalleryView(
-                    images = allImages, 
-                    context = context,
-                    viewStyle = viewStyle,
-                    onToggleView = ::toggleViewStyle
-                )
+                if (isLoadingGallery) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("LOADING GALLERY...", fontWeight = FontWeight.Black, color = NeoTextSecondary)
+                    }
+                } else {
+                    GalleryView(
+                        images = allImages, 
+                        context = context,
+                        viewStyle = viewStyle,
+                        onToggleView = ::toggleViewStyle
+                    )
+                }
             } else {
                 // ---- FOLDER VIEW ----
                 FolderView(

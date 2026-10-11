@@ -27,7 +27,22 @@ object WebPConverter {
         val outWebpFile = File(imageFile.parentFile, outName)
 
         try {
-            val bitmap = BitmapFactory.decodeFile(imageFile.absolutePath)
+            // Read dimensions without allocating pixel memory
+            val boundsOpts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeFile(imageFile.absolutePath, boundsOpts)
+            if (boundsOpts.outWidth <= 0 || boundsOpts.outHeight <= 0) {
+                return imageFile
+            }
+
+            // Downsample if image exceeds 4096px on either dimension to prevent OutOfMemoryError
+            val maxDimension = 4096
+            var sampleSize = 1
+            while (boundsOpts.outWidth / sampleSize > maxDimension || boundsOpts.outHeight / sampleSize > maxDimension) {
+                sampleSize *= 2
+            }
+
+            val decodeOpts = BitmapFactory.Options().apply { inSampleSize = sampleSize }
+            val bitmap = BitmapFactory.decodeFile(imageFile.absolutePath, decodeOpts)
                 ?: return imageFile // Failed to decode
 
             FileOutputStream(outWebpFile).use { out ->

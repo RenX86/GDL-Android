@@ -27,4 +27,7 @@ interface DownloadHistoryDao {
 
     @Query("DELETE FROM download_history")
     fun clearAll()
+
+    @Query("DELETE FROM download_history WHERE status NOT IN ('DOWNLOADING', 'QUEUED')")
+    fun clearCompleted()
 }

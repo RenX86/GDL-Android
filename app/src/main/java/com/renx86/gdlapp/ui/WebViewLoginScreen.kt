@@ -39,6 +39,19 @@ fun WebViewLoginScreen(
     var pageTitle by remember { mutableStateOf("Loading...") }
     var webViewRef by remember { mutableStateOf<WebView?>(null) }
 
+    DisposableEffect(Unit) {
+        onDispose {
+            webViewRef?.apply {
+                stopLoading()
+                loadUrl("about:blank")
+                clearHistory()
+                removeAllViews()
+                destroy()
+            }
+            webViewRef = null
+        }
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()

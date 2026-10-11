@@ -68,6 +68,8 @@ data class BottomNavItem(
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
+    private val _sharedUrl = mutableStateOf("")
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
@@ -92,15 +94,28 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        val sharedUrl = when (intent?.action) {
-            Intent.ACTION_SEND -> intent.getStringExtra(Intent.EXTRA_TEXT) ?: ""
-            else -> ""
-        }
+        _sharedUrl.value = extractSharedUrl(intent)
 
         setContent {
             GDLAndroidTheme {
-                MainApp(sharedUrl = sharedUrl, initialIntent = intent)
+                MainApp(sharedUrl = _sharedUrl.value, initialIntent = intent)
             }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        val url = extractSharedUrl(intent)
+        if (url.isNotEmpty()) {
+            _sharedUrl.value = url
+        }
+    }
+
+    private fun extractSharedUrl(intent: Intent?): String {
+        return when (intent?.action) {
+            Intent.ACTION_SEND -> intent.getStringExtra(Intent.EXTRA_TEXT) ?: ""
+            else -> ""
         }
     }
 }

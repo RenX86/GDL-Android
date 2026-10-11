@@ -50,6 +50,11 @@ fun HomeScreen(updateViewModel: com.renx86.gdlapp.viewmodel.UpdateViewModel,
     modifier: Modifier = Modifier
 ) {
     var url by remember { mutableStateOf(initialUrl) }
+    LaunchedEffect(initialUrl) {
+        if (initialUrl.isNotEmpty()) {
+            url = initialUrl
+        }
+    }
     val clipboardManager = LocalClipboardManager.current
     val context = LocalContext.current
     val prefs = remember { DownloadPreferences(context) }

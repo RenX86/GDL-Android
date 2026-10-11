@@ -21,3 +21,19 @@
 #-renamesourcefileattribute SourceFile
 -keep class com.chaquo.python.** { *; }
 -keep class org.json.** { *; }
+
+# Kotlin Serialization (used for Navigation routes)
+-keepattributes *Annotation*, InnerClasses
+-dontnote kotlinx.serialization.AnnotationsKt
+-keepclassmembers class kotlinx.serialization.json.** { *** Companion; }
+-keepclasseswithmembers class com.renx86.gdlapp.** {
+    kotlinx.serialization.KSerializer serializer(...);
+}
+-keep,includedescriptorclasses class com.renx86.gdlapp.**$$serializer { *; }
+
+# Room (entities and DAOs use reflection)
+-keep class com.renx86.gdlapp.data.db.** { *; }
+
+# Hilt generated classes
+-keep class dagger.hilt.** { *; }
+-keep class * extends dagger.hilt.android.internal.managers.** { *; }
