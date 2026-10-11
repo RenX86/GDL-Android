@@ -31,19 +31,13 @@ object BackupManager {
             root.put("theme", theme)
 
             val cookies = JSONObject()
-            val cookieData = JSONObject()
             val loggedSitesArray = JSONArray()
-            val cookieManager = android.webkit.CookieManager.getInstance()
             
             cookiePrefs.getLoggedSites().forEach { site ->
                 loggedSitesArray.put(site)
-                val cookieStr = cookieManager.getCookie("https://$site")
-                if (cookieStr != null) {
-                    cookieData.put(site, cookieStr)
-                }
             }
             cookies.put("logged_sites", loggedSitesArray)
-            cookies.put("cookie_data", cookieData)
+            // NOTE: Live session cookie headers are omitted from export to prevent session hijacking
             root.put("cookies", cookies)
 
             val downloads = JSONObject()

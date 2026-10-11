@@ -11,13 +11,16 @@ import com.renx86.gdlapp.python.GalleryDlBridge
 import com.renx86.gdlapp.service.DownloadService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 
 @HiltViewModel
@@ -26,6 +29,8 @@ class DownloadViewModel @Inject constructor(
     private val dao: DownloadHistoryDao,
     @ApplicationContext private val appContext: Context
 ) : ViewModel() {
+
+    private val activeJobs = ConcurrentHashMap<String, Job>()
 
     val downloads: StateFlow<List<DownloadHistoryEntity>> = dao.getAllHistory()
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
@@ -43,12 +48,20 @@ class DownloadViewModel @Inject constructor(
                     }
                     try {
                         val intent = DownloadService.startIntent(appContext, text)
-                        appContext.startForegroundService(intent)
+                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                            appContext.startForegroundService(intent)
+                        } else {
+                            appContext.startService(intent)
+                        }
                     } catch (e: Exception) {
                         Log.e("GDL_SERVICE", "Failed to update service", e)
                     }
                 } else {
-                    appContext.stopService(Intent(appContext, DownloadService::class.java))
+                    try {
+                        appContext.stopService(Intent(appContext, DownloadService::class.java))
+                    } catch (e: Exception) {
+                        Log.e("GDL_SERVICE", "Failed to stop service", e)
+                    }
                 }
             }
         }
@@ -62,14 +75,15 @@ class DownloadViewModel @Inject constructor(
             status = "QUEUED"
         )
         
-        viewModelScope.launch(Dispatchers.IO) {
+        val job = viewModelScope.launch(Dispatchers.IO) {
             dao.insert(item)
             processDownload(item)
         }
+        activeJobs[item.id] = job
     }
 
     private fun processDownload(item: DownloadHistoryEntity) {
-        viewModelScope.launch(Dispatchers.IO) {
+        val job = viewModelScope.launch(Dispatchers.IO) {
             dao.updateStatus(item.id, "DOWNLOADING", null)
 
             try {
@@ -82,8 +96,22 @@ class DownloadViewModel @Inject constructor(
                     dao.updateStatus(item.id, "FAILED", msg)
                 }
             } catch (e: Exception) {
+                if (e is CancellationException) {
+                    dao.updateStatus(item.id, "CANCELLED", "Cancelled by user")
+                    throw e
+                }
                 dao.updateStatus(item.id, "FAILED", e.message ?: "Unknown error")
+            } finally {
+                activeJobs.remove(item.id)
             }
+        }
+        activeJobs[item.id] = job
+    }
+
+    fun cancelDownload(itemId: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            activeJobs.remove(itemId)?.cancel()
+            dao.updateStatus(itemId, "CANCELLED", "Cancelled by user")
         }
     }
 
@@ -98,6 +126,7 @@ class DownloadViewModel @Inject constructor(
 
     fun removeItem(itemId: String) {
         viewModelScope.launch(Dispatchers.IO) {
+            activeJobs.remove(itemId)?.cancel()
             dao.deleteById(itemId)
         }
     }

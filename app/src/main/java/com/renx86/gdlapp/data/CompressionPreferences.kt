@@ -34,10 +34,10 @@ class CompressionPreferences @Inject constructor(
     }
 
     fun getWebpQuality(): Int {
-        return prefs.getInt(KEY_WEBP_QUALITY, 85)
+        return prefs.getInt(KEY_WEBP_QUALITY, 85).coerceIn(1, 100)
     }
 
     fun setWebpQuality(quality: Int) {
-        prefs.edit().putInt(KEY_WEBP_QUALITY, quality).apply()
+        prefs.edit().putInt(KEY_WEBP_QUALITY, quality.coerceIn(1, 100)).apply()
     }
 }

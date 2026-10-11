@@ -47,6 +47,7 @@ fun HistoryScreen(
     downloads: List<DownloadHistoryEntity>,
     onRetry: (String) -> Unit,
     onRemove: (String) -> Unit,
+    onCancel: (String) -> Unit = {},
     onClearAll: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -195,7 +196,7 @@ fun HistoryScreen(
                             },
                             enableDismissFromStartToEnd = false
                         ) {
-                            NeoHistoryCard(item, onRetry, onRemove)
+                            NeoHistoryCard(item, onRetry, onRemove, onCancel)
                         }
                         Spacer(modifier = Modifier.height(16.dp))
                     }
@@ -209,7 +210,8 @@ fun HistoryScreen(
 fun NeoHistoryCard(
     item: DownloadHistoryEntity,
     onRetry: (String) -> Unit,
-    onRemove: (String) -> Unit
+    onRemove: (String) -> Unit,
+    onCancel: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
     
@@ -217,6 +219,7 @@ fun NeoHistoryCard(
         "QUEUED" -> NeoTheme.colors.textSecondary to "QUEUED"
         "DOWNLOADING" -> NeoYellow to "DOWNLOADING..."
         "COMPLETED" -> NeoGreen to "COMPLETED"
+        "CANCELLED" -> NeoPink to "CANCELLED"
         else -> NeoPink to "FAILED"
     }
     
@@ -318,7 +321,21 @@ fun NeoHistoryCard(
                 // Action Buttons
                 Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     // Retry Button
-                    if (item.status == "FAILED" || item.status == "COMPLETED") {
+                    if (item.status == "DOWNLOADING" || item.status == "QUEUED") {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clickable { onCancel(item.id) }
+                                .neoBrutalist(backgroundColor = NeoPink, borderWidth = 2.dp, shadowOffset = 2.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Cancel Download",
+                                tint = NeoBorder
+                            )
+                        }
+                    } else if (item.status == "FAILED" || item.status == "COMPLETED" || item.status == "CANCELLED") {
                         Box(
                             modifier = Modifier
                                 .size(36.dp)

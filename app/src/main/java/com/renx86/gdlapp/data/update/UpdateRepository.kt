@@ -26,11 +26,14 @@ class UpdateRepository @Inject constructor(
     private val updatesDir = File(context.cacheDir, "updates").apply { mkdirs() }
 
     suspend fun fetchLatest(): UpdateInfo? = withContext(Dispatchers.IO) {
+        var connection: HttpURLConnection? = null
         try {
             val url = URL("https://api.github.com/repos/RenX86/GDL-Android/releases/latest")
-            val connection = url.openConnection() as HttpURLConnection
+            connection = url.openConnection() as HttpURLConnection
             connection.requestMethod = "GET"
             connection.setRequestProperty("Accept", "application/vnd.github.v3+json")
+            connection.connectTimeout = 10_000
+            connection.readTimeout = 15_000
 
             if (connection.responseCode == HttpURLConnection.HTTP_OK) {
                 val response = connection.inputStream.bufferedReader().readText()
@@ -62,6 +65,8 @@ class UpdateRepository @Inject constructor(
             }
         } catch (e: Exception) {
             e.printStackTrace()
+        } finally {
+            connection?.disconnect()
         }
         null
     }
@@ -75,10 +80,11 @@ class UpdateRepository @Inject constructor(
         }
 
         val partFile = File(updatesDir, "GDL-${info.version}.part")
+        var connection: HttpURLConnection? = null
         
         try {
             val url = URL(info.apkUrl)
-            val connection = url.openConnection() as HttpURLConnection
+            connection = url.openConnection() as HttpURLConnection
             connection.requestMethod = "GET"
             connection.instanceFollowRedirects = true // GitHub redirects to objects.githubusercontent.com
             connection.connectTimeout = 15_000
@@ -115,9 +121,17 @@ class UpdateRepository @Inject constructor(
                     }
                 }
             }
-            connection.disconnect()
 
             if (currentCoroutineContext().isActive && readBytes > 0) {
+                if (partFile.length() != totalBytes) {
+                    partFile.delete()
+                    throw Exception("Downloaded file size mismatch (${partFile.length()} != $totalBytes)")
+                }
+                val archiveInfo = context.packageManager.getPackageArchiveInfo(partFile.absolutePath, 0)
+                if (archiveInfo == null || archiveInfo.packageName != context.packageName) {
+                    partFile.delete()
+                    throw Exception("Downloaded file is not a valid APK for this app")
+                }
                 if (!partFile.renameTo(apkFile)) throw Exception("Could not save update file")
                 emit(DownloadProgress(apkFile.length(), apkFile.length()))
             } else {
@@ -126,6 +140,8 @@ class UpdateRepository @Inject constructor(
         } catch (e: Exception) {
             partFile.delete()
             throw e
+        } finally {
+            connection?.disconnect()
         }
     }.flowOn(Dispatchers.IO)
 

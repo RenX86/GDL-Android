@@ -24,11 +24,13 @@ import java.io.File
 @Composable
 fun SettingsScreen(
     updateViewModel: com.renx86.gdlapp.viewmodel.UpdateViewModel,
+    settingsViewModel: com.renx86.gdlapp.viewmodel.SettingsViewModel = androidx.hilt.navigation.compose.hiltViewModel(),
     onLoginToSite: (String) -> Unit = {},
     onManageArchive: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val compressionState by settingsViewModel.compressionState.collectAsState()
     val prefs = remember { DownloadPreferences(context) }
     val cookiePrefs = remember { CookiePreferences(context) }
     val themePrefs = remember { ThemePreferences(context) }
@@ -269,9 +271,8 @@ fun SettingsScreen(
                     keepOriginalFiles = it
                     compPrefs.setKeepOriginalEnabled(it)
                 },
-                downloadPath = downloadPath,
-                context = context,
-                scope = scope
+                compressionState = compressionState,
+                onCompressExistingClick = { settingsViewModel.compressExistingLibrary() }
             )
         }
 

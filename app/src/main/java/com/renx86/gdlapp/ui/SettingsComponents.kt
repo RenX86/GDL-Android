@@ -654,14 +654,9 @@ fun SettingsCompressionSection(
     onQualityChange: (Float) -> Unit,
     keepOriginal: Boolean,
     onKeepOriginalChange: (Boolean) -> Unit,
-    downloadPath: String,
-    context: Context,
-    scope: kotlinx.coroutines.CoroutineScope
+    compressionState: com.renx86.gdlapp.viewmodel.CompressionProgressState = com.renx86.gdlapp.viewmodel.CompressionProgressState.Idle,
+    onCompressExistingClick: () -> Unit = {}
 ) {
-    var isConverting by remember { mutableStateOf(false) }
-    var convertProgress by remember { mutableFloatStateOf(0f) }
-    var convertText by remember { mutableStateOf("") }
-
     NeoCollapsibleCard(
         title = "COMPRESSION",
         icon = { Icon(Icons.Default.Image, contentDescription = "Compression", tint = NeoBorder) },
@@ -729,120 +724,38 @@ fun SettingsCompressionSection(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        if (isConverting) {
-            Text(convertText, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = NeoBorder)
-            Spacer(modifier = Modifier.height(8.dp))
-            LinearProgressIndicator(
-                progress = { convertProgress },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(12.dp)
-                    .border(2.dp, NeoBorder),
-                color = NeoYellow,
-                trackColor = NeoTheme.colors.surface,
-            )
-        } else {
-            NeoButton(
-                text = "Compress Existing Library",
-                onClick = {
-                    isConverting = true
-                    convertProgress = 0f
-                    convertText = "Scanning..."
-                    
-                    scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                        try {
-                            val allFiles = mutableListOf<androidx.documentfile.provider.DocumentFile>()
-                            val allJavaFiles = mutableListOf<File>()
-                            var total = 0
-                            
-                            if (downloadPath.startsWith("content://")) {
-                                val uri = android.net.Uri.parse(downloadPath)
-                                val docFile = androidx.documentfile.provider.DocumentFile.fromTreeUri(context, uri)
-                                if (docFile != null) {
-                                    fun walk(dir: androidx.documentfile.provider.DocumentFile) {
-                                        for (child in dir.listFiles()) {
-                                            if (child.isDirectory) walk(child)
-                                            else {
-                                                val ext = child.name?.substringAfterLast('.', "")?.lowercase()
-                                                if (ext in listOf("jpg", "jpeg", "png")) {
-                                                    allFiles.add(child)
-                                                }
-                                            }
-                                        }
-                                    }
-                                    walk(docFile)
-                                    total = allFiles.size
-                                }
-                            } else {
-                                val dir = File(downloadPath)
-                                if (dir.exists()) {
-                                    allJavaFiles.addAll(dir.walkTopDown().filter { 
-                                        it.isFile && it.extension.lowercase() in listOf("jpg", "jpeg", "png") 
-                                    })
-                                    total = allJavaFiles.size
-                                }
-                            }
-
-                            if (total == 0) {
-                                convertText = "No JPG/PNG files found."
-                                kotlinx.coroutines.delay(2000)
-                                isConverting = false
-                                return@launch
-                            }
-
-                            var converted = 0
-                            val targetQuality = quality.toInt()
-
-                            if (allJavaFiles.isNotEmpty()) {
-                                for (file in allJavaFiles) {
-                                    convertText = "Converting ${file.name}..."
-                                    com.renx86.gdlapp.util.WebPConverter.convertFileToWebp(file, targetQuality, keepOriginal)
-                                    converted++
-                                    convertProgress = converted.toFloat() / total
-                                }
-                            } else {
-                                // SAF conversion is harder because WebPConverter takes a java.io.File
-                                // For now, we'll download to cache, convert, and overwrite
-                                for (docFile in allFiles) {
-                                    convertText = "Converting ${docFile.name}..."
-                                    try {
-                                        val tempFile = File(context.cacheDir, docFile.name ?: "temp.jpg")
-                                        context.contentResolver.openInputStream(docFile.uri)?.use { input ->
-                                            tempFile.outputStream().use { output -> input.copyTo(output) }
-                                        }
-                                        val webpFile = com.renx86.gdlapp.util.WebPConverter.convertFileToWebp(tempFile, targetQuality, keepOriginal)
-                                        if (webpFile.exists() && webpFile.name.endsWith(".webp")) {
-                                            val parent = docFile.parentFile
-                                            if (!keepOriginal) {
-                                                docFile.delete()
-                                            }
-                                            parent?.createFile("image/webp", webpFile.name)?.let { newDoc ->
-                                                context.contentResolver.openOutputStream(newDoc.uri)?.use { out ->
-                                                    webpFile.inputStream().use { input -> input.copyTo(out) }
-                                                }
-                                            }
-                                        }
-                                        if (webpFile.exists()) webpFile.delete()
-                                        if (tempFile.exists()) tempFile.delete() // just in case
-                                    } catch (e: Exception) {}
-                                    converted++
-                                    convertProgress = converted.toFloat() / total
-                                }
-                            }
-
-                            convertText = "Done! Converted $converted files."
-                            kotlinx.coroutines.delay(2000)
-                        } catch (e: Exception) {
-                            convertText = "Error: ${e.message}"
-                            kotlinx.coroutines.delay(2000)
-                        } finally {
-                            isConverting = false
-                        }
-                    }
-                },
-                color = NeoYellow,
-                modifier = Modifier.fillMaxWidth()
-            )
+        when (compressionState) {
+            is com.renx86.gdlapp.viewmodel.CompressionProgressState.Running -> {
+                Text(compressionState.statusText, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = NeoBorder)
+                Spacer(modifier = Modifier.height(8.dp))
+                LinearProgressIndicator(
+                    progress = { compressionState.progress },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(12.dp)
+                        .border(2.dp, NeoBorder),
+                    color = NeoYellow,
+                    trackColor = NeoTheme.colors.surface,
+                )
+            }
+            is com.renx86.gdlapp.viewmodel.CompressionProgressState.Finished -> {
+                Text(compressionState.message, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = NeoBorder)
+                Spacer(modifier = Modifier.height(8.dp))
+                NeoButton(
+                    text = "Compress Existing Library",
+                    onClick = onCompressExistingClick,
+                    color = NeoYellow,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+            is com.renx86.gdlapp.viewmodel.CompressionProgressState.Idle -> {
+                NeoButton(
+                    text = "Compress Existing Library",
+                    onClick = onCompressExistingClick,
+                    color = NeoYellow,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
         }
     }
 }

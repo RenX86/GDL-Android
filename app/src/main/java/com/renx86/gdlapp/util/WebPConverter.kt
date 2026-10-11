@@ -2,6 +2,8 @@ package com.renx86.gdlapp.util
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Matrix
+import android.media.ExifInterface
 import java.io.File
 import java.io.FileOutputStream
 
@@ -42,8 +44,34 @@ object WebPConverter {
             }
 
             val decodeOpts = BitmapFactory.Options().apply { inSampleSize = sampleSize }
-            val bitmap = BitmapFactory.decodeFile(imageFile.absolutePath, decodeOpts)
+            var bitmap = BitmapFactory.decodeFile(imageFile.absolutePath, decodeOpts)
                 ?: return imageFile // Failed to decode
+
+            // Read EXIF from source before any modification
+            val srcExif = try {
+                ExifInterface(imageFile.absolutePath)
+            } catch (_: Exception) {
+                null
+            }
+
+            // Correct orientation if rotated in EXIF
+            if (srcExif != null) {
+                val orientation = srcExif.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)
+                val rotationAngle = when (orientation) {
+                    ExifInterface.ORIENTATION_ROTATE_90 -> 90f
+                    ExifInterface.ORIENTATION_ROTATE_180 -> 180f
+                    ExifInterface.ORIENTATION_ROTATE_270 -> 270f
+                    else -> 0f
+                }
+                if (rotationAngle != 0f) {
+                    val matrix = Matrix().apply { postRotate(rotationAngle) }
+                    val rotated = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+                    if (rotated != bitmap) {
+                        bitmap.recycle()
+                        bitmap = rotated
+                    }
+                }
+            }
 
             FileOutputStream(outWebpFile).use { out ->
                 // Native WebP compression
@@ -59,6 +87,30 @@ object WebPConverter {
             bitmap.recycle()
 
             if (outWebpFile.exists() && outWebpFile.length() > 0) {
+                // Copy metadata to the newly generated WebP file
+                if (srcExif != null) {
+                    try {
+                        val dstExif = ExifInterface(outWebpFile.absolutePath)
+                        val tags = listOf(
+                            ExifInterface.TAG_DATETIME,
+                            ExifInterface.TAG_MAKE,
+                            ExifInterface.TAG_MODEL,
+                            ExifInterface.TAG_GPS_LATITUDE,
+                            ExifInterface.TAG_GPS_LONGITUDE,
+                            ExifInterface.TAG_GPS_LATITUDE_REF,
+                            ExifInterface.TAG_GPS_LONGITUDE_REF
+                        )
+                        for (tag in tags) {
+                            srcExif.getAttribute(tag)?.let { dstExif.setAttribute(tag, it) }
+                        }
+                        // Orientation is now normalized in pixels
+                        dstExif.setAttribute(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL.toString())
+                        dstExif.saveAttributes()
+                    } catch (_: Exception) {
+                        /* Best-effort EXIF preservation */
+                    }
+                }
+
                 if (!keepOriginal) {
                     imageFile.delete()
                 }

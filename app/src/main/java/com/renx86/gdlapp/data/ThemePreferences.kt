@@ -3,6 +3,10 @@ package com.renx86.gdlapp.data
 import android.content.Context
 import android.content.SharedPreferences
 
+import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Inject
+import javax.inject.Singleton
+
 enum class ThemeMode {
     SYSTEM, LIGHT, DARK
 }
@@ -11,7 +15,10 @@ enum class ThemeStyle {
     CLASSIC, MONOCHROME
 }
 
-class ThemePreferences(context: Context) {
+@Singleton
+class ThemePreferences @Inject constructor(
+    @ApplicationContext private val context: Context
+) {
     private val prefs: SharedPreferences = context.getSharedPreferences("theme_prefs", Context.MODE_PRIVATE)
 
     fun getThemeMode(): ThemeMode {

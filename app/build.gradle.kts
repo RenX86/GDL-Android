@@ -79,45 +79,44 @@ kotlin {
 
 dependencies {
     // Compose (BOM manages all Compose library versions)
-    val composeBom = platform("androidx.compose:compose-bom:2025.06.00")
+    val composeBom = platform(libs.androidx.compose.bom)
     implementation(composeBom)
-    implementation("androidx.compose.ui:ui")
-    implementation("androidx.compose.material3:material3")
-    implementation("androidx.compose.ui:ui-tooling-preview")
-    debugImplementation("androidx.compose.ui:ui-tooling")
+    implementation(libs.androidx.compose.ui)
+    implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.compose.ui.tooling.preview)
+    debugImplementation(libs.androidx.compose.ui.tooling)
 
     // Navigation
-    implementation("androidx.navigation:navigation-compose:2.9.0")
+    implementation(libs.androidx.navigation.compose)
 
     // Material icons Extended
-    implementation("androidx.compose.material:material-icons-extended")
+    implementation(libs.androidx.compose.material.icons.extended)
 
     // Serialization
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.0")
+    implementation(libs.kotlinx.serialization.json)
 
     // Activity & Lifecycle
-    implementation("androidx.activity:activity-compose:1.10.1")
-    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.9.1")
-    implementation("androidx.documentfile:documentfile:1.0.1")
+    implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.documentfile)
 
     // Hilt (DI)
-    implementation("com.google.dagger:hilt-android:2.60.1")
-    ksp("com.google.dagger:hilt-compiler:2.60.1")
-    implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
+    implementation(libs.hilt.android)
+    ksp(libs.hilt.compiler)
+    implementation(libs.androidx.hilt.navigation.compose)
 
     // WorkManager
-    implementation("androidx.work:work-runtime-ktx:2.10.1")
+    implementation(libs.androidx.work.runtime.ktx)
 
     // Coroutines
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
+    implementation(libs.kotlinx.coroutines.android)
 
     // Coil (image loading for gallery thumbnails)
-    implementation("io.coil-kt.coil3:coil-compose:3.2.0")
-    implementation("io.coil-kt.coil3:coil-video:3.2.0")
+    implementation(libs.coil.compose)
+    implementation(libs.coil.video)
 
     // Room Database
-    val room_version = "2.6.1"
-    implementation("androidx.room:room-runtime:$room_version")
-    ksp("androidx.room:room-compiler:$room_version")
-    implementation("androidx.room:room-ktx:$room_version")
+    implementation(libs.androidx.room.runtime)
+    ksp(libs.androidx.room.compiler)
+    implementation(libs.androidx.room.ktx)
 }

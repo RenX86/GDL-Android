@@ -5,15 +5,17 @@
 -->
 <data-extraction-rules>
     <cloud-backup>
-        <!-- TODO: Use <include> and <exclude> to control what is backed up.
-        <include .../>
-        <exclude .../>
-        -->
+        <exclude domain="sharedpref" path="gdl_cookie_prefs.xml"/>
+        <exclude domain="file" path="cookies.txt"/>
+        <exclude domain="root" path="app_webview"/>
+        <exclude domain="file" path="archive.sqlite3-wal"/>
+        <exclude domain="file" path="archive.sqlite3-shm"/>
     </cloud-backup>
-    <!--
     <device-transfer>
-        <include .../>
-        <exclude .../>
+        <exclude domain="sharedpref" path="gdl_cookie_prefs.xml"/>
+        <exclude domain="file" path="cookies.txt"/>
+        <exclude domain="root" path="app_webview"/>
+        <exclude domain="file" path="archive.sqlite3-wal"/>
+        <exclude domain="file" path="archive.sqlite3-shm"/>
     </device-transfer>
-    -->
 </data-extraction-rules>

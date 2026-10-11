@@ -47,6 +47,7 @@ fun HomeScreen(updateViewModel: com.renx86.gdlapp.viewmodel.UpdateViewModel,
     onDownload: (String) -> Unit,
     onRetry: (String) -> Unit = {},
     onRemove: (String) -> Unit = {},
+    onCancel: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var url by remember { mutableStateOf(initialUrl) }
@@ -246,7 +247,7 @@ fun HomeScreen(updateViewModel: com.renx86.gdlapp.viewmodel.UpdateViewModel,
                     ) {
                         items(activeDownloads, key = { it.id }) { item ->
                             Box(modifier = Modifier.animateItem()) {
-                                NeoHistoryCard(item = item, onRetry = onRetry, onRemove = onRemove)
+                                NeoHistoryCard(item = item, onRetry = onRetry, onRemove = onRemove, onCancel = onCancel)
                             }
                         }
                     }

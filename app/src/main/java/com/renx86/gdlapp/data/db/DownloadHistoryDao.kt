@@ -6,7 +6,6 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
 import kotlinx.coroutines.flow.Flow
-
 @Dao
 interface DownloadHistoryDao {
 
@@ -14,20 +13,20 @@ interface DownloadHistoryDao {
     fun getAllHistory(): Flow<List<DownloadHistoryEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    fun insert(history: DownloadHistoryEntity)
+    suspend fun insert(history: DownloadHistoryEntity)
 
     @Update
-    fun update(history: DownloadHistoryEntity)
+    suspend fun update(history: DownloadHistoryEntity)
 
     @Query("UPDATE download_history SET status = :status, errorMessage = :errorMessage WHERE id = :id")
-    fun updateStatus(id: String, status: String, errorMessage: String?)
+    suspend fun updateStatus(id: String, status: String, errorMessage: String?): Int
 
     @Query("DELETE FROM download_history WHERE id = :id")
-    fun deleteById(id: String)
+    suspend fun deleteById(id: String): Int
 
     @Query("DELETE FROM download_history")
-    fun clearAll()
+    suspend fun clearAll(): Int
 
     @Query("DELETE FROM download_history WHERE status NOT IN ('DOWNLOADING', 'QUEUED')")
-    fun clearCompleted()
+    suspend fun clearCompleted(): Int
 }

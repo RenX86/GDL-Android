@@ -68,12 +68,14 @@ data class BottomNavItem(
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
+    @javax.inject.Inject
+    lateinit var themePrefs: com.renx86.gdlapp.data.ThemePreferences
+
     private val _sharedUrl = mutableStateOf("")
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        val themePrefs = com.renx86.gdlapp.data.ThemePreferences(this)
         val isDark = when (themePrefs.getThemeMode()) {
             com.renx86.gdlapp.data.ThemeMode.LIGHT -> false
             com.renx86.gdlapp.data.ThemeMode.DARK -> true
@@ -283,7 +285,9 @@ fun MainTabsScreen(sharedUrl: String, viewModel: DownloadViewModel, updateViewMo
                         activeDownloads = downloads.filter { it.status == "DOWNLOADING" || it.status == "QUEUED" },
                         onDownload = { url -> viewModel.enqueue(url) },
                         onRetry = { viewModel.retry(it) },
-                        onRemove = { viewModel.removeItem(it) }, updateViewModel = updateViewModel
+                        onRemove = { viewModel.removeItem(it) },
+                        onCancel = { viewModel.cancelDownload(it) },
+                        updateViewModel = updateViewModel
                     )
                 }
                 1 -> {
@@ -292,6 +296,7 @@ fun MainTabsScreen(sharedUrl: String, viewModel: DownloadViewModel, updateViewMo
                         downloads = downloads,
                         onRetry = { viewModel.retry(it) },
                         onRemove = { viewModel.removeItem(it) },
+                        onCancel = { viewModel.cancelDownload(it) },
                         onClearAll = { viewModel.clearAllHistory() }
                     )
                 }

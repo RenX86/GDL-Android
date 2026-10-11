@@ -141,6 +141,14 @@ class GalleryDlBridge @Inject constructor(
         val pickedDir = androidx.documentfile.provider.DocumentFile.fromTreeUri(context, targetTreeUri)
             ?: throw IllegalStateException("Could not access selected folder")
 
+        // Cache directory children to eliminate O(n^2) SAF ContentProvider lookups
+        val dirChildrenCache = mutableMapOf<String, MutableMap<String, androidx.documentfile.provider.DocumentFile>>()
+        fun getChildrenMap(dir: androidx.documentfile.provider.DocumentFile): MutableMap<String, androidx.documentfile.provider.DocumentFile> {
+            return dirChildrenCache.getOrPut(dir.uri.toString()) {
+                dir.listFiles().associateByTo(mutableMapOf()) { it.name.orEmpty() }
+            }
+        }
+
         // Recursively walk the cache dir and copy every file
         tempCacheDir.walkTopDown().forEach { file ->
             if (file.isFile) {
@@ -151,14 +159,18 @@ class GalleryDlBridge @Inject constructor(
                 if (relativePath != null && relativePath != "") {
                     val segments = relativePath.split(File.separatorChar)
                     for (segment in segments) {
-                        val nextDir = currentDir.findFile(segment) ?: currentDir.createDirectory(segment)
+                        val children = getChildrenMap(currentDir)
+                        val nextDir = children[segment] ?: currentDir.createDirectory(segment)?.also {
+                            children[segment] = it
+                        }
                         currentDir = nextDir ?: throw IllegalStateException("Failed to create subfolder $segment")
                     }
                 }
 
                 // Check if file already exists in SAF, if so delete to overwrite
-                val existingFile = currentDir.findFile(file.name)
-                existingFile?.delete()
+                val children = getChildrenMap(currentDir)
+                children[file.name]?.delete()
+                children.remove(file.name)
 
                 val extension = file.extension.lowercase()
                 val mimeType = android.webkit.MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension)
@@ -168,7 +180,7 @@ class GalleryDlBridge @Inject constructor(
                         "mkv" -> "video/x-matroska"
                         "mov" -> "video/quicktime"
                         "jpg", "jpeg" -> "image/jpeg"
-                        "png" -> "image/png"
+                        "png", "png" -> "image/png"
                         "gif" -> "image/gif"
                         "webp" -> "image/webp"
                         else -> "application/octet-stream"
@@ -176,10 +188,13 @@ class GalleryDlBridge @Inject constructor(
 
                 val newDocFile = currentDir.createFile(mimeType, file.name)
                     ?: throw IllegalStateException("Failed to create file ${file.name}")
+                children[file.name] = newDocFile
 
-                context.contentResolver.openOutputStream(newDocFile.uri)?.use { outStream ->
+                val outStream = context.contentResolver.openOutputStream(newDocFile.uri)
+                    ?: throw java.io.IOException("Could not open destination output stream for ${file.name}")
+                outStream.use { stream ->
                     file.inputStream().use { inStream ->
-                        inStream.copyTo(outStream)
+                        inStream.copyTo(stream)
                     }
                 }
             }
