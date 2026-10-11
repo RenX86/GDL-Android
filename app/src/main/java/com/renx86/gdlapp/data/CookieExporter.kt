@@ -1,7 +1,5 @@
 package com.renx86.gdlapp.data
 
-import android.content.Context
-import android.net.Uri
 import android.webkit.CookieManager
 import java.io.File
 
@@ -104,19 +102,5 @@ object CookieExporter {
                 "" // Skip malformed cookies
             }
         }.lines().filter { it.isNotBlank() }.joinToString("\n")
-    }
-
-    /**
-     * Extracts the base domain from a URL.
-     * "https://www.twitter.com/login" → "twitter.com"
-     */
-    private fun extractDomain(url: String): String {
-        return try {
-            val host = Uri.parse(url).host ?: url
-            // Remove "www." prefix if present
-            host.removePrefix("www.")
-        } catch (e: Exception) {
-            url
-        }
     }
 }

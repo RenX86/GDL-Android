@@ -24,7 +24,6 @@ class GalleryDlBridge @Inject constructor(
     private val cookiePrefs: CookiePreferences,
     private val compressionPrefs: CompressionPreferences
 ) {
-    private var currentDownloadDir: String = ""
     private val bridgeMutex = Mutex() // Added to synchronize Python access
 
     private val module by lazy {
@@ -35,16 +34,11 @@ class GalleryDlBridge @Inject constructor(
     }
 
     /**
-     * Initialize (or re-initialize) gallery-dl with the current download path.
-     * Called before every download to pick up any path changes from Settings.
+     * Initialize gallery-dl with the per-download temporary cache path.
      */
-    private var isInitialized = false
-
     private fun ensureInitialized(tempCacheDir: String) {
-        // We ALWAYS re-initialize with the new temp cache dir per download
         val filesDir = context.filesDir.absolutePath
         module.callAttr("initialize", filesDir, tempCacheDir)
-        isInitialized = true
 
         applyCookies()
         applyDeduplication()

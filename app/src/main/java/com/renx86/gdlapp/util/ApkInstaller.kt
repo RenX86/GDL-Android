@@ -20,11 +20,15 @@ object ApkInstaller {
 
     fun openInstallPermissionSettings(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val intent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
-                data = Uri.parse("package:${context.packageName}")
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            try {
+                val intent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
+                    data = Uri.parse("package:${context.packageName}")
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                }
+                context.startActivity(intent)
+            } catch (e: Exception) {
+                android.util.Log.e("ApkInstaller", "Failed to open install permission settings", e)
             }
-            context.startActivity(intent)
         }
     }
 
@@ -42,7 +46,7 @@ object ApkInstaller {
             }
             context.startActivity(intent)
         } catch (e: Exception) {
-            e.printStackTrace()
+            android.util.Log.e("ApkInstaller", "Failed to launch package installer for APK: ${apkFile.absolutePath}", e)
         }
     }
 }

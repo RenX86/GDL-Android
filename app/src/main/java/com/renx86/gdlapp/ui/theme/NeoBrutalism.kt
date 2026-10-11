@@ -31,6 +31,10 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.composed
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 
 // ---- NEOBRUTALISM COLORS ----
 val NeoBackground: Color @Composable get() = NeoTheme.colors.background
@@ -39,6 +43,7 @@ val NeoPink: Color @Composable get() = NeoTheme.colors.pink
 val NeoBlue: Color @Composable get() = NeoTheme.colors.blue
 val NeoGreen: Color @Composable get() = NeoTheme.colors.green
 val NeoOrange: Color @Composable get() = NeoTheme.colors.orange
+val NeoPurple: Color @Composable get() = if (NeoTheme.colors.isDark) Color(0xFF9F75D8) else Color(0xFFD8B4FE)
 val NeoBorder: Color @Composable get() = NeoTheme.colors.border
 val NeoText: Color @Composable get() = NeoTheme.colors.text
 val NeoTextSecondary: Color @Composable get() = NeoTheme.colors.textSecondary
@@ -109,6 +114,7 @@ fun NeoButton(
                 interactionSource = interactionSource,
                 indication = null,
                 enabled = enabled,
+                role = Role.Button,
                 onClick = onClick
             )
             .padding(vertical = 16.dp, horizontal = 24.dp),
@@ -204,7 +210,10 @@ fun NeoCollapsibleCard(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { expanded = !expanded }
+                    .clickable(role = Role.Button) { expanded = !expanded }
+                    .semantics {
+                        stateDescription = if (expanded) "Expanded" else "Collapsed"
+                    }
                     .padding(20.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -225,7 +234,9 @@ fun NeoCollapsibleCard(
                     "▼",
                     fontSize = 20.sp,
                     color = NeoBorder,
-                    modifier = Modifier.graphicsLayer { rotationZ = chevronRotation }
+                    modifier = Modifier
+                        .graphicsLayer { rotationZ = chevronRotation }
+                        .clearAndSetSemantics { }
                 )
             }
 

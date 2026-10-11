@@ -202,16 +202,21 @@ fun HomeScreen(updateViewModel: com.renx86.gdlapp.viewmodel.UpdateViewModel,
 
                 val isUrlValid = url.isNotBlank()
                 val shouldPulse = isUrlValid && !isDownloading
-                val infiniteTransition = rememberInfiniteTransition(label = "DownloadPulse")
-                val pulse by infiniteTransition.animateFloat(
-                    initialValue = 1.0f,
-                    targetValue = if (shouldPulse) 1.02f else 1.0f,
-                    animationSpec = infiniteRepeatable(
-                        animation = tween(800),
-                        repeatMode = RepeatMode.Reverse
-                    ),
-                    label = "PulseScale"
-                )
+                val pulse = if (shouldPulse) {
+                    val infiniteTransition = rememberInfiniteTransition(label = "DownloadPulse")
+                    val animatedPulse by infiniteTransition.animateFloat(
+                        initialValue = 1.0f,
+                        targetValue = 1.02f,
+                        animationSpec = infiniteRepeatable(
+                            animation = tween(800),
+                            repeatMode = RepeatMode.Reverse
+                        ),
+                        label = "PulseScale"
+                    )
+                    animatedPulse
+                } else {
+                    1.0f
+                }
 
                 NeoButton(
                     text = "Download",

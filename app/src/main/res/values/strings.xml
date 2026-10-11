@@ -1,3 +1,10 @@
 <resources>
     <string name="app_name">GDL-Android</string>
+    <string name="update_available_title">GDL Update Available</string>
+    <string name="update_available_msg">Version %1$s is ready to download.</string>
+    <string name="update_action">UPDATE</string>
+    <string name="download_action">DOWNLOAD</string>
+    <string name="cancel_action">CANCEL</string>
+    <string name="error_cannot_open_url">Cannot open URL</string>
+    <string name="error_no_app_open_file">No app available to open this file</string>
 </resources>

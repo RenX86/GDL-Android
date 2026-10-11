@@ -47,8 +47,6 @@ import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
 
-// Purple color for the About card (not in the standard NeoColors palette)
-val NeoPurple = Color(0xFFD8B4FE)
 
 @Composable
 fun SettingsHeroCard(
@@ -169,7 +167,7 @@ fun SettingsAppearanceSection(
         Text("THEME STYLE", fontWeight = FontWeight.Black, fontSize = 14.sp, color = NeoBorder)
         Spacer(modifier = Modifier.height(8.dp))
         NeoSegmentedToggle(
-            options = ThemeStyle.values().toList(),
+            options = ThemeStyle.entries,
             selectedOption = styleState,
             onOptionSelected = { style ->
                 themePrefs.setThemeStyle(style)
@@ -184,7 +182,7 @@ fun SettingsAppearanceSection(
         Text("MODE", fontWeight = FontWeight.Black, fontSize = 14.sp, color = NeoBorder)
         Spacer(modifier = Modifier.height(8.dp))
         NeoSegmentedToggle(
-            options = ThemeMode.values().toList(),
+            options = ThemeMode.entries,
             selectedOption = modeState,
             onOptionSelected = { mode ->
                 themePrefs.setThemeMode(mode)
@@ -442,8 +440,17 @@ fun SettingsAuthSection(
                                 cookiePrefs.removeLoggedSite(site)
                                 val cookieFile = File(context.filesDir, CookiePreferences.COOKIE_FILENAME)
                                 CookieExporter.exportAll(cookiePrefs.getLoggedSites(), cookieFile)
-                                android.webkit.CookieManager.getInstance().setCookie("https://$site", "")
-                                android.webkit.CookieManager.getInstance().flush()
+                                val cookieMgr = android.webkit.CookieManager.getInstance()
+                                val existingCookies = cookieMgr.getCookie("https://$site")
+                                if (!existingCookies.isNullOrBlank()) {
+                                    for (cookie in existingCookies.split(";")) {
+                                        val cookieName = cookie.substringBefore("=").trim()
+                                        if (cookieName.isNotEmpty()) {
+                                            cookieMgr.setCookie("https://$site", "$cookieName=; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Path=/")
+                                        }
+                                    }
+                                }
+                                cookieMgr.flush()
                                 onCookiesUpdated()
                             }
                         )

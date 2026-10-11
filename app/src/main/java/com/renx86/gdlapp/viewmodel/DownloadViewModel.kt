@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.renx86.gdlapp.data.db.DownloadHistoryDao
 import com.renx86.gdlapp.data.db.DownloadHistoryEntity
+import com.renx86.gdlapp.data.db.DownloadStatus
 import com.renx86.gdlapp.python.GalleryDlBridge
 import com.renx86.gdlapp.service.DownloadService
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -14,6 +15,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -38,8 +40,8 @@ class DownloadViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             downloads.collect { list ->
-                val activeCount = list.count { it.status == "DOWNLOADING" }
-                val queuedCount = list.count { it.status == "QUEUED" }
+                val activeCount = list.count { it.status == DownloadStatus.DOWNLOADING }
+                val queuedCount = list.count { it.status == DownloadStatus.QUEUED }
                 
                 if (activeCount > 0 || queuedCount > 0) {
                     val text = when {
@@ -72,62 +74,68 @@ class DownloadViewModel @Inject constructor(
             id = UUID.randomUUID().toString(),
             url = url.trim(),
             timestamp = System.currentTimeMillis(),
-            status = "QUEUED"
+            status = DownloadStatus.QUEUED
         )
         
         val job = viewModelScope.launch(Dispatchers.IO) {
             dao.insert(item)
             processDownload(item)
         }
+        job.invokeOnCompletion { activeJobs.remove(item.id) }
         activeJobs[item.id] = job
     }
 
-    private fun processDownload(item: DownloadHistoryEntity) {
-        val job = viewModelScope.launch(Dispatchers.IO) {
-            dao.updateStatus(item.id, "DOWNLOADING", null)
+    private suspend fun processDownload(item: DownloadHistoryEntity) {
+        dao.updateStatus(item.id, DownloadStatus.DOWNLOADING, null)
 
-            try {
-                val result = bridge.download(item.url, item.id)
-                val status = result.optString("status", "error")
-                if (status == "ok") {
-                    dao.updateStatus(item.id, "COMPLETED", null)
-                } else {
-                    val msg = result.optString("message", "Unknown error")
-                    dao.updateStatus(item.id, "FAILED", msg)
-                }
-            } catch (e: Exception) {
-                if (e is CancellationException) {
-                    dao.updateStatus(item.id, "CANCELLED", "Cancelled by user")
-                    throw e
-                }
-                dao.updateStatus(item.id, "FAILED", e.message ?: "Unknown error")
-            } finally {
-                activeJobs.remove(item.id)
+        try {
+            val result = bridge.download(item.url, item.id)
+            val status = result.optString("status", "error")
+            if (status == "ok") {
+                dao.updateStatus(item.id, DownloadStatus.COMPLETED, null)
+            } else {
+                val msg = result.optString("message", "Unknown error")
+                dao.updateStatus(item.id, DownloadStatus.FAILED, msg)
             }
+        } catch (e: Exception) {
+            if (e is CancellationException) {
+                withContext(NonCancellable) {
+                    dao.updateStatus(item.id, DownloadStatus.CANCELLED, "Cancelled by user")
+                }
+                throw e
+            }
+            dao.updateStatus(item.id, DownloadStatus.FAILED, e.message ?: "Unknown error")
+        } finally {
+            activeJobs.remove(item.id)
         }
-        activeJobs[item.id] = job
     }
 
     fun cancelDownload(itemId: String) {
         viewModelScope.launch(Dispatchers.IO) {
             activeJobs.remove(itemId)?.cancel()
-            dao.updateStatus(itemId, "CANCELLED", "Cancelled by user")
+            withContext(NonCancellable) {
+                dao.updateStatus(itemId, DownloadStatus.CANCELLED, "Cancelled by user")
+            }
         }
     }
 
     fun retry(itemId: String) {
-        viewModelScope.launch(Dispatchers.IO) {
+        val job = viewModelScope.launch(Dispatchers.IO) {
             val item = downloads.value.find { it.id == itemId } ?: return@launch
-            val updated = item.copy(timestamp = System.currentTimeMillis(), status = "QUEUED", errorMessage = null)
+            val updated = item.copy(timestamp = System.currentTimeMillis(), status = DownloadStatus.QUEUED, errorMessage = null)
             dao.update(updated)
             processDownload(updated)
         }
+        job.invokeOnCompletion { activeJobs.remove(itemId) }
+        activeJobs[itemId] = job
     }
 
     fun removeItem(itemId: String) {
         viewModelScope.launch(Dispatchers.IO) {
             activeJobs.remove(itemId)?.cancel()
-            dao.deleteById(itemId)
+            withContext(NonCancellable) {
+                dao.deleteById(itemId)
+            }
         }
     }
 

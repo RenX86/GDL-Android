@@ -37,12 +37,12 @@ object UpdateNotifier {
 
         val notification = NotificationCompat.Builder(context, GDLApplication.CHANNEL_UPDATES_ID)
             .setSmallIcon(android.R.drawable.stat_sys_download_done)
-            .setContentTitle("GDL Update Available")
-            .setContentText("Version ${info.version.removePrefix("v")} is ready to download.")
+            .setContentTitle(context.getString(R.string.update_available_title))
+            .setContentText(context.getString(R.string.update_available_msg, info.version.removePrefix("v")))
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
-            .addAction(0, "UPDATE", pendingIntent)
+            .addAction(0, context.getString(R.string.update_action), pendingIntent)
             .build()
 
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager

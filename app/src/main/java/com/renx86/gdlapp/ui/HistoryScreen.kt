@@ -2,6 +2,8 @@ package com.renx86.gdlapp.ui
 
 import android.content.Intent
 import android.net.Uri
+import android.util.Log
+import android.widget.Toast
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.RepeatMode
@@ -34,7 +36,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import coil3.compose.SubcomposeAsyncImage
+import androidx.compose.ui.semantics.Role
 import com.renx86.gdlapp.data.db.DownloadHistoryEntity
+import com.renx86.gdlapp.data.db.DownloadStatus
 import com.renx86.gdlapp.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.*
@@ -56,9 +60,9 @@ fun HistoryScreen(
     val filteredDownloads = remember(downloads, selectedFilter) {
         when (selectedFilter) {
             HistoryFilter.ALL -> downloads
-            HistoryFilter.ACTIVE -> downloads.filter { it.status == "DOWNLOADING" || it.status == "QUEUED" }
-            HistoryFilter.COMPLETED -> downloads.filter { it.status == "COMPLETED" }
-            HistoryFilter.FAILED -> downloads.filter { it.status == "FAILED" }
+            HistoryFilter.ACTIVE -> downloads.filter { it.status == DownloadStatus.DOWNLOADING || it.status == DownloadStatus.QUEUED }
+            HistoryFilter.COMPLETED -> downloads.filter { it.status == DownloadStatus.COMPLETED }
+            HistoryFilter.FAILED -> downloads.filter { it.status == DownloadStatus.FAILED }
         }
     }
 
@@ -93,9 +97,9 @@ fun HistoryScreen(
                 }
             }
             
-            val activeCount = downloads.count { it.status == "DOWNLOADING" || it.status == "QUEUED" }
-            val completedCount = downloads.count { it.status == "COMPLETED" }
-            val failedCount = downloads.count { it.status == "FAILED" }
+            val activeCount = downloads.count { it.status == DownloadStatus.DOWNLOADING || it.status == DownloadStatus.QUEUED }
+            val completedCount = downloads.count { it.status == DownloadStatus.COMPLETED }
+            val failedCount = downloads.count { it.status == DownloadStatus.FAILED }
             
             Text(
                 "${downloads.size} total • $activeCount active • $completedCount done • $failedCount failed",
@@ -114,9 +118,9 @@ fun HistoryScreen(
             items(HistoryFilter.entries.toTypedArray()) { filter ->
                 val count = when (filter) {
                     HistoryFilter.ALL -> downloads.size
-                    HistoryFilter.ACTIVE -> downloads.count { it.status == "DOWNLOADING" || it.status == "QUEUED" }
-                    HistoryFilter.COMPLETED -> downloads.count { it.status == "COMPLETED" }
-                    HistoryFilter.FAILED -> downloads.count { it.status == "FAILED" }
+                    HistoryFilter.ACTIVE -> downloads.count { it.status == DownloadStatus.DOWNLOADING || it.status == DownloadStatus.QUEUED }
+                    HistoryFilter.COMPLETED -> downloads.count { it.status == DownloadStatus.COMPLETED }
+                    HistoryFilter.FAILED -> downloads.count { it.status == DownloadStatus.FAILED }
                 }
                 
                 val isSelected = selectedFilter == filter
@@ -124,7 +128,7 @@ fun HistoryScreen(
                 
                 Box(
                     modifier = Modifier
-                        .clickable { selectedFilter = filter }
+                        .clickable(role = Role.Button) { selectedFilter = filter }
                         .neoBrutalist(backgroundColor = bgColor, borderWidth = 2.dp, shadowOffset = if(isSelected) 0.dp else 4.dp)
                         .padding(horizontal = 12.dp, vertical = 6.dp)
                 ) {
@@ -216,10 +220,10 @@ fun NeoHistoryCard(
     val context = LocalContext.current
     
     val (targetColor, statusText) = when (item.status) {
-        "QUEUED" -> NeoTheme.colors.textSecondary to "QUEUED"
-        "DOWNLOADING" -> NeoYellow to "DOWNLOADING..."
-        "COMPLETED" -> NeoGreen to "COMPLETED"
-        "CANCELLED" -> NeoPink to "CANCELLED"
+        DownloadStatus.QUEUED -> NeoTheme.colors.textSecondary to "QUEUED"
+        DownloadStatus.DOWNLOADING -> NeoYellow to "DOWNLOADING..."
+        DownloadStatus.COMPLETED -> NeoGreen to "COMPLETED"
+        DownloadStatus.CANCELLED -> NeoPink to "CANCELLED"
         else -> NeoPink to "FAILED"
     }
     
@@ -231,8 +235,8 @@ fun NeoHistoryCard(
         "URL"
     }
 
-    val formatter = SimpleDateFormat("MMM dd, h:mm a", Locale.getDefault())
-    val dateString = formatter.format(Date(item.timestamp))
+    val dateString = remember(item.timestamp) { SimpleDateFormat("MMM dd, h:mm a", Locale.getDefault()).format(Date(item.timestamp)) }
+
 
     Box(
         modifier = Modifier
@@ -241,7 +245,10 @@ fun NeoHistoryCard(
                 try {
                     val intent = Intent(Intent.ACTION_VIEW, Uri.parse(item.url))
                     context.startActivity(intent)
-                } catch (e: Exception) {}
+                } catch (e: Exception) {
+                    Log.w("HistoryScreen", "Failed to launch URL: ${item.url}", e)
+                    Toast.makeText(context, context.getString(com.renx86.gdlapp.R.string.error_cannot_open_url), Toast.LENGTH_SHORT).show()
+                }
             }
             .neoBrutalist(backgroundColor = NeoTheme.colors.surface, shadowOffset = 6.dp)
     ) {
@@ -286,7 +293,7 @@ fun NeoHistoryCard(
 
                     // Progress bar / Status
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        if (item.status == "DOWNLOADING") {
+                        if (item.status == DownloadStatus.DOWNLOADING) {
                             AnimatedProgressIndicator(
                                 modifier = Modifier
                                     .weight(1f)
@@ -321,11 +328,11 @@ fun NeoHistoryCard(
                 // Action Buttons
                 Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     // Retry Button
-                    if (item.status == "DOWNLOADING" || item.status == "QUEUED") {
+                    if (item.status == DownloadStatus.DOWNLOADING || item.status == DownloadStatus.QUEUED) {
                         Box(
                             modifier = Modifier
                                 .size(36.dp)
-                                .clickable { onCancel(item.id) }
+                                .clickable(role = Role.Button) { onCancel(item.id) }
                                 .neoBrutalist(backgroundColor = NeoPink, borderWidth = 2.dp, shadowOffset = 2.dp),
                             contentAlignment = Alignment.Center
                         ) {
@@ -335,11 +342,11 @@ fun NeoHistoryCard(
                                 tint = NeoBorder
                             )
                         }
-                    } else if (item.status == "FAILED" || item.status == "COMPLETED" || item.status == "CANCELLED") {
+                    } else if (item.status == DownloadStatus.FAILED || item.status == DownloadStatus.COMPLETED || item.status == DownloadStatus.CANCELLED) {
                         Box(
                             modifier = Modifier
                                 .size(36.dp)
-                                .clickable { onRetry(item.id) }
+                                .clickable(role = Role.Button) { onRetry(item.id) }
                                 .neoBrutalist(backgroundColor = NeoYellow, borderWidth = 2.dp, shadowOffset = 2.dp),
                             contentAlignment = Alignment.Center
                         ) {

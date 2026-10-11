@@ -23,11 +23,13 @@ object DatabaseModule {
             AppDatabase::class.java,
             "gdl_database"
         )
+        .addMigrations(AppDatabase.MIGRATION_1_2)
         .fallbackToDestructiveMigration()
         .build()
     }
 
     @Provides
+    @Singleton
     fun provideDownloadHistoryDao(appDatabase: AppDatabase): DownloadHistoryDao {
         return appDatabase.downloadHistoryDao()
     }

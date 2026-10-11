@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -69,7 +70,13 @@ fun WebViewLoginScreen(
                 Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White)
             }
             Spacer(modifier = Modifier.width(8.dp))
-            Icon(Icons.Default.Lock, contentDescription = "Secure", tint = NeoGreen, modifier = Modifier.size(16.dp))
+            val isSecure = currentUrl.startsWith("https://", ignoreCase = true)
+            Icon(
+                imageVector = if (isSecure) Icons.Default.Lock else Icons.Default.LockOpen,
+                contentDescription = if (isSecure) "Secure connection" else "Not secure",
+                tint = if (isSecure) NeoGreen else NeoPink,
+                modifier = Modifier.size(16.dp)
+            )
             Spacer(modifier = Modifier.width(4.dp))
             Text(
                 text = currentUrl,

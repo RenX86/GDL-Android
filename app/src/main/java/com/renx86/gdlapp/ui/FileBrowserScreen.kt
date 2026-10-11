@@ -639,6 +639,7 @@ private fun openFile(context: Context, fileNode: FileNode) {
         }
         context.startActivity(Intent.createChooser(intent, "Open with"))
     } catch (e: Exception) {
-        // No app to handle this file type
+        android.util.Log.w("FileBrowser", "No application found to open file: ${fileNode.name}", e)
+        android.widget.Toast.makeText(context, context.getString(com.renx86.gdlapp.R.string.error_no_app_open_file), android.widget.Toast.LENGTH_SHORT).show()
     }
 }

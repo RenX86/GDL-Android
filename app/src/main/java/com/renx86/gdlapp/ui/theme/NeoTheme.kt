@@ -77,6 +77,10 @@ val MonochromeDarkColors = NeoColors(
 
 val LocalNeoColors = staticCompositionLocalOf { ClassicLightColors }
 
+val NeoColors.primary: Color get() = yellow
+val NeoColors.secondary: Color get() = pink
+val NeoColors.isDark: Boolean get() = background == ClassicDarkColors.background || background == MonochromeDarkColors.background
+
 object NeoTheme {
     val colors: NeoColors
         @Composable

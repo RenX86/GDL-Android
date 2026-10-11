@@ -15,6 +15,8 @@ import java.io.OutputStreamWriter
 
 object BackupManager {
 
+    const val CURRENT_BACKUP_VERSION = 1
+
     fun exportBackup(context: Context, uri: Uri): Boolean {
         return try {
             val themePrefs = ThemePreferences(context)
@@ -23,7 +25,7 @@ object BackupManager {
             val compPrefs = CompressionPreferences(context)
 
             val root = JSONObject()
-            root.put("version", 1)
+            root.put("version", CURRENT_BACKUP_VERSION)
 
             val theme = JSONObject()
             theme.put("theme_mode", themePrefs.getThemeMode().name)
@@ -97,6 +99,11 @@ object BackupManager {
             } ?: return false
 
             val root = JSONObject(jsonString)
+            val version = root.optInt("version", -1)
+            if (version !in 1..CURRENT_BACKUP_VERSION) {
+                android.util.Log.w("BackupManager", "Unsupported backup version: $version")
+                return false
+            }
             
             val themePrefs = ThemePreferences(context)
             val cookiePrefs = CookiePreferences(context)
