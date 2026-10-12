@@ -22,6 +22,9 @@ import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.SdStorage
+import androidx.compose.material.icons.filled.Terminal
+import com.renx86.gdlapp.data.engine.EngineUpdateInfo
+import com.renx86.gdlapp.viewmodel.EngineUpdateState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.collectAsState
@@ -814,6 +817,196 @@ fun SettingsAboutSection(
         ) {
             Text("LICENSE", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = NeoTextSecondary)
             Text("GNU GPLv3", fontWeight = FontWeight.Black, fontSize = 14.sp, color = NeoBorder)
+        }
+    }
+}
+
+@Composable
+fun SettingsEngineSection(
+    currentVersion: String,
+    isCustomEngine: Boolean,
+    autoCheckEnabled: Boolean,
+    onAutoCheckToggled: (Boolean) -> Unit,
+    updateState: EngineUpdateState,
+    onCheckUpdate: () -> Unit,
+    onInstallUpdate: (EngineUpdateInfo) -> Unit,
+    onResetToBundled: () -> Unit
+) {
+    NeoCollapsibleCard(
+        title = "CORE ENGINE (GALLERY-DL)",
+        icon = { Icon(Icons.Default.Terminal, contentDescription = "Engine", tint = NeoBorder) },
+        backgroundColor = NeoTheme.colors.surface,
+        initiallyExpanded = true
+    ) {
+        // Version Row
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("ENGINE VERSION", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = NeoTextSecondary)
+
+            Box(
+                modifier = Modifier
+                    .neoBrutalist(
+                        backgroundColor = if (isCustomEngine) NeoGreen else NeoYellow,
+                        borderWidth = 1.5.dp,
+                        shadowOffset = 2.dp
+                    )
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
+            ) {
+                Text(
+                    text = "v$currentVersion" + (if (isCustomEngine) " (CUSTOM)" else " (BUNDLED)"),
+                    fontWeight = FontWeight.Black,
+                    fontSize = 12.sp,
+                    color = NeoBorder
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // State feedback (Checking, UpdateAvailable, Downloading, Success, Error)
+        when (updateState) {
+            is EngineUpdateState.Checking -> {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = NeoBorder)
+                    Text("Checking PyPI for engine updates...", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = NeoBorder)
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
+            is EngineUpdateState.UpdateAvailable -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .neoBrutalist(backgroundColor = NeoTheme.colors.background, borderWidth = 2.dp, shadowOffset = 3.dp)
+                        .padding(12.dp)
+                ) {
+                    Column {
+                        Text(
+                            text = "NEW VERSION: v${updateState.info.version}",
+                            fontWeight = FontWeight.Black,
+                            fontSize = 14.sp,
+                            color = NeoBorder
+                        )
+                        Text(
+                            text = "${String.format(java.util.Locale.US, "%.1f", updateState.info.sizeBytes / 1024f / 1024f)} MB • Released ${updateState.info.releaseDate.take(10)}",
+                            fontSize = 12.sp,
+                            color = NeoTextSecondary,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        NeoButton(
+                            text = "UPDATE ENGINE NOW",
+                            onClick = { onInstallUpdate(updateState.info) },
+                            color = NeoGreen,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+
+            is EngineUpdateState.Downloading -> {
+                Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                    val percent = (updateState.progress * 100).toInt()
+                    Text(
+                        text = "DOWNLOADING & EXTRACTING: $percent%",
+                        fontWeight = FontWeight.Black,
+                        fontSize = 12.sp,
+                        color = NeoBorder
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    LinearProgressIndicator(
+                        progress = { updateState.progress },
+                        modifier = Modifier.fillMaxWidth().height(10.dp).border(1.5.dp, NeoBorder),
+                        color = NeoGreen,
+                        trackColor = NeoTheme.colors.background
+                    )
+                }
+                Spacer(modifier = Modifier.height(10.dp))
+            }
+
+            is EngineUpdateState.Success -> {
+                Text(
+                    text = updateState.message,
+                    color = NeoGreen,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 13.sp
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
+            is EngineUpdateState.Error -> {
+                Text(
+                    text = updateState.message,
+                    color = NeoPink,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 12.sp
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
+            is EngineUpdateState.UpToDate -> {
+                Text(
+                    text = "gallery-dl is up to date!",
+                    color = NeoGreen,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 13.sp
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
+            is EngineUpdateState.Idle -> { /* Nothing extra */ }
+        }
+
+        // Action Buttons
+        NeoButton(
+            text = "CHECK FOR ENGINE UPDATE",
+            onClick = onCheckUpdate,
+            color = NeoBlue,
+            enabled = updateState !is EngineUpdateState.Checking && updateState !is EngineUpdateState.Downloading,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        if (isCustomEngine) {
+            Spacer(modifier = Modifier.height(8.dp))
+            NeoButton(
+                text = "RESET TO BUNDLED ENGINE",
+                onClick = onResetToBundled,
+                color = NeoPink,
+                enabled = updateState !is EngineUpdateState.Downloading,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Auto-check toggle
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                Text("AUTO-CHECK ENGINE", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = NeoBorder)
+                Text("Check PyPI automatically on app launch", fontSize = 11.sp, color = NeoTextSecondary)
+            }
+            Switch(
+                checked = autoCheckEnabled,
+                onCheckedChange = onAutoCheckToggled,
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = NeoYellow,
+                    checkedTrackColor = NeoBorder,
+                    uncheckedThumbColor = NeoTheme.colors.surface,
+                    uncheckedTrackColor = NeoTextSecondary
+                )
+            )
         }
     }
 }

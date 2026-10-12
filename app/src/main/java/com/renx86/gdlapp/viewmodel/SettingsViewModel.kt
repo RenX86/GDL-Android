@@ -7,6 +7,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.renx86.gdlapp.data.CompressionPreferences
 import com.renx86.gdlapp.data.DownloadPreferences
+import com.renx86.gdlapp.data.engine.EnginePreferences
+import com.renx86.gdlapp.data.engine.EngineUpdateInfo
+import com.renx86.gdlapp.data.engine.GalleryDlUpdateManager
+import com.renx86.gdlapp.data.update.VersionComparator
+import com.renx86.gdlapp.python.GalleryDlBridge
 import com.renx86.gdlapp.util.WebPConverter
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -25,15 +30,147 @@ sealed interface CompressionProgressState {
     data class Finished(val message: String) : CompressionProgressState
 }
 
+sealed interface EngineUpdateState {
+    object Idle : EngineUpdateState
+    object Checking : EngineUpdateState
+    data class UpdateAvailable(val info: EngineUpdateInfo) : EngineUpdateState
+    data class Downloading(val progress: Float) : EngineUpdateState
+    object UpToDate : EngineUpdateState
+    data class Success(val message: String) : EngineUpdateState
+    data class Error(val message: String) : EngineUpdateState
+}
+
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val downloadPrefs: DownloadPreferences,
-    private val compressionPrefs: CompressionPreferences
+    private val compressionPrefs: CompressionPreferences,
+    private val enginePrefs: EnginePreferences,
+    private val engineUpdateManager: GalleryDlUpdateManager,
+    private val bridge: GalleryDlBridge
 ) : ViewModel() {
 
     private val _compressionState = MutableStateFlow<CompressionProgressState>(CompressionProgressState.Idle)
     val compressionState: StateFlow<CompressionProgressState> = _compressionState.asStateFlow()
+
+    private val _engineUpdateState = MutableStateFlow<EngineUpdateState>(EngineUpdateState.Idle)
+    val engineUpdateState: StateFlow<EngineUpdateState> = _engineUpdateState.asStateFlow()
+
+    private val _currentEngineVersion = MutableStateFlow("Loading...")
+    val currentEngineVersion: StateFlow<String> = _currentEngineVersion.asStateFlow()
+
+    private val _isCustomEngine = MutableStateFlow(false)
+    val isCustomEngine: StateFlow<Boolean> = _isCustomEngine.asStateFlow()
+
+    private val _autoCheckEngineUpdates = MutableStateFlow(enginePrefs.isAutoCheckEnabled())
+    val autoCheckEngineUpdates: StateFlow<Boolean> = _autoCheckEngineUpdates.asStateFlow()
+
+    init {
+        refreshEngineInfo()
+    }
+
+    fun refreshEngineInfo() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val version = bridge.getEngineVersion()
+            _currentEngineVersion.value = version
+            _isCustomEngine.value = enginePrefs.getCustomEnginePath() != null
+
+            if (enginePrefs.isAutoCheckEnabled()) {
+                val lastCheck = enginePrefs.getLastCheckTime()
+                // Check if more than 24 hours have passed since last check
+                if (System.currentTimeMillis() - lastCheck > 24 * 60 * 60 * 1000) {
+                    checkEngineUpdate(silent = true)
+                }
+            }
+        }
+    }
+
+    fun checkEngineUpdate(silent: Boolean = false) {
+        if (_engineUpdateState.value is EngineUpdateState.Checking ||
+            _engineUpdateState.value is EngineUpdateState.Downloading
+        ) return
+
+        if (!silent) {
+            _engineUpdateState.value = EngineUpdateState.Checking
+        }
+
+        viewModelScope.launch(Dispatchers.IO) {
+            val result = engineUpdateManager.checkLatest()
+            if (result.isSuccess) {
+                val info = result.getOrNull()
+                if (info != null) {
+                    val current = _currentEngineVersion.value
+                    if (VersionComparator.isNewer(info.version, current)) {
+                        _engineUpdateState.value = EngineUpdateState.UpdateAvailable(info)
+                    } else {
+                        if (!silent) {
+                            _engineUpdateState.value = EngineUpdateState.UpToDate
+                            delay(2500)
+                            _engineUpdateState.value = EngineUpdateState.Idle
+                        }
+                    }
+                } else if (!silent) {
+                    _engineUpdateState.value = EngineUpdateState.Error("No wheel package found on PyPI")
+                    delay(3000)
+                    _engineUpdateState.value = EngineUpdateState.Idle
+                }
+            } else if (!silent) {
+                val errorMsg = result.exceptionOrNull()?.message ?: "Check failed"
+                _engineUpdateState.value = EngineUpdateState.Error(errorMsg)
+                delay(3000)
+                _engineUpdateState.value = EngineUpdateState.Idle
+            }
+        }
+    }
+
+    fun installEngineUpdate(info: EngineUpdateInfo) {
+        if (_engineUpdateState.value is EngineUpdateState.Downloading) return
+        _engineUpdateState.value = EngineUpdateState.Downloading(0f)
+
+        viewModelScope.launch(Dispatchers.IO) {
+            val result = engineUpdateManager.downloadAndInstall(info) { progress ->
+                _engineUpdateState.value = EngineUpdateState.Downloading(progress)
+            }
+
+            if (result.isSuccess) {
+                val newVer = result.getOrNull() ?: info.version
+                _currentEngineVersion.value = newVer
+                _isCustomEngine.value = true
+                _engineUpdateState.value = EngineUpdateState.Success("gallery-dl updated to v$newVer!")
+                delay(3000)
+                _engineUpdateState.value = EngineUpdateState.Idle
+            } else {
+                val err = result.exceptionOrNull()?.message ?: "Installation failed"
+                _engineUpdateState.value = EngineUpdateState.Error(err)
+                delay(4000)
+                _engineUpdateState.value = EngineUpdateState.Idle
+            }
+        }
+    }
+
+    fun resetEngineToBundled() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val result = engineUpdateManager.resetToBundled()
+            if (result.isSuccess) {
+                val bundledVer = bridge.getEngineVersion()
+                _currentEngineVersion.value = bundledVer
+                _isCustomEngine.value = false
+                _engineUpdateState.value = EngineUpdateState.Success("Reset to bundled v$bundledVer")
+                delay(2500)
+                _engineUpdateState.value = EngineUpdateState.Idle
+            } else {
+                val err = result.exceptionOrNull()?.message ?: "Reset failed"
+                _engineUpdateState.value = EngineUpdateState.Error(err)
+                delay(3000)
+                _engineUpdateState.value = EngineUpdateState.Idle
+            }
+        }
+    }
+
+    fun setAutoCheckEngineUpdates(enabled: Boolean) {
+        enginePrefs.setAutoCheckEnabled(enabled)
+        _autoCheckEngineUpdates.value = enabled
+    }
 
     fun resetCompressionState() {
         _compressionState.value = CompressionProgressState.Idle

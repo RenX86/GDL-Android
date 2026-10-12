@@ -31,6 +31,10 @@ fun SettingsScreen(
 ) {
     val context = LocalContext.current
     val compressionState by settingsViewModel.compressionState.collectAsState()
+    val engineUpdateState by settingsViewModel.engineUpdateState.collectAsState()
+    val currentEngineVersion by settingsViewModel.currentEngineVersion.collectAsState()
+    val isCustomEngine by settingsViewModel.isCustomEngine.collectAsState()
+    val autoCheckEngineUpdates by settingsViewModel.autoCheckEngineUpdates.collectAsState()
     val prefs = remember { DownloadPreferences(context) }
     val cookiePrefs = remember { CookiePreferences(context) }
     val themePrefs = remember { ThemePreferences(context) }
@@ -285,6 +289,19 @@ fun SettingsScreen(
                 onRestoreClick = {
                     restoreLauncher.launch(arrayOf("*/*"))
                 }
+            )
+        }
+
+        item {
+            SettingsEngineSection(
+                currentVersion = currentEngineVersion,
+                isCustomEngine = isCustomEngine,
+                autoCheckEnabled = autoCheckEngineUpdates,
+                onAutoCheckToggled = { settingsViewModel.setAutoCheckEngineUpdates(it) },
+                updateState = engineUpdateState,
+                onCheckUpdate = { settingsViewModel.checkEngineUpdate() },
+                onInstallUpdate = { settingsViewModel.installEngineUpdate(it) },
+                onResetToBundled = { settingsViewModel.resetEngineToBundled() }
             )
         }
 

@@ -7,6 +7,7 @@ import com.renx86.gdlapp.data.CookiePreferences
 import com.renx86.gdlapp.data.DownloadPreferences
 import com.renx86.gdlapp.data.CompressionPreferences
 import com.renx86.gdlapp.util.WebPConverter
+import com.renx86.gdlapp.data.engine.EnginePreferences
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
@@ -22,7 +23,8 @@ class GalleryDlBridge @Inject constructor(
     @ApplicationContext private val context: Context,
     private val prefs: DownloadPreferences,
     private val cookiePrefs: CookiePreferences,
-    private val compressionPrefs: CompressionPreferences
+    private val compressionPrefs: CompressionPreferences,
+    private val enginePrefs: EnginePreferences
 ) {
     private val bridgeMutex = Mutex() // Added to synchronize Python access
 
@@ -38,7 +40,7 @@ class GalleryDlBridge @Inject constructor(
      */
     private fun ensureInitialized(tempCacheDir: String) {
         val filesDir = context.filesDir.absolutePath
-        module.callAttr("initialize", filesDir, tempCacheDir)
+        module.callAttr("initialize", filesDir, tempCacheDir, enginePrefs.getCustomEnginePath())
 
         applyCookies()
         applyDeduplication()
@@ -191,6 +193,34 @@ class GalleryDlBridge @Inject constructor(
                         inStream.copyTo(stream)
                     }
                 }
+            }
+        }
+    }
+    suspend fun getEngineVersion(): String = withContext(Dispatchers.IO) {
+        bridgeMutex.withLock {
+            try {
+                val customPath = enginePrefs.getCustomEnginePath()
+                if (customPath != null && File(customPath).exists()) {
+                    module.callAttr("set_engine_path", customPath)
+                }
+                module.callAttr("get_engine_version").toString()
+            } catch (e: Exception) {
+                "unknown"
+            }
+        }
+    }
+
+    suspend fun reloadEngine(customPath: String?): Result<String> = withContext(Dispatchers.IO) {
+        bridgeMutex.withLock {
+            try {
+                val newVersion = module.callAttr("set_engine_path", customPath).toString()
+                if (newVersion.startsWith("error:")) {
+                    Result.failure(Exception(newVersion))
+                } else {
+                    Result.success(newVersion)
+                }
+            } catch (e: Exception) {
+                Result.failure(e)
             }
         }
     }
