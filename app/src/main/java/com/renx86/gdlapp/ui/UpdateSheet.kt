@@ -141,12 +141,12 @@ fun UpdateSheet(
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .heightIn(max = 200.dp)
+                                    .heightIn(min = 60.dp, max = 240.dp)
                                     .neoBrutalist(backgroundColor = NeoTheme.colors.surface, shadowOffset = 4.dp)
                                     .padding(16.dp)
                                     .verticalScroll(rememberScrollState())
                             ) {
-                                Text(currentState.info.changelog, color = NeoBorder, fontSize = 14.sp)
+                                NeoMarkdown(content = currentState.info.changelog, modifier = Modifier.fillMaxWidth())
                             }
                             
                             Spacer(modifier = Modifier.height(24.dp))
